@@ -54,7 +54,7 @@ cdef class Trie:
 		length = strlen(key) - 1
 
 		for i in range(0, length):
-			current_node = self._get_subnode(current_node, key[i], i)
+			current_node = self._get_subnode(current_node, key[i])
 			
 			if current_node == NULL:		
 				break
@@ -62,7 +62,7 @@ cdef class Trie:
 		return current_node
 	
 
-	cdef inline Node* _get_subnode(Trie self, Node *node, char position, int i):
+	cdef inline Node* _get_subnode(Trie self, Node *node, char position):
 		
 		cdef int chunk
 		cdef int bit
@@ -110,7 +110,7 @@ cdef class Trie:
 		for i in range(0, length):
 			
 			character = key[i]
-			working_node = self._get_subnode(current_node, character, i)
+			working_node = self._get_subnode(current_node, character)
 			
 			if working_node == NULL:
 				working_node = self._create_node()
