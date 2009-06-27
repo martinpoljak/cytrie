@@ -13,19 +13,15 @@ cdef extern from "math.h":
 #####
 
 cdef struct Node:
-	Node **subnodes
+	Node ***subnodes
 	char *value
 	char content_map
 	
 cdef class Trie:
 	
 	cdef Node* _root
-	cdef int _long_long_int_ratio
-	cdef int _node_content_map_reset_size
 	
 	def __cinit__(Trie self):
-		self._long_long_int_ratio = sizeof(unsigned long long) / sizeof(unsigned int)
-		self._node_content_map_reset_size = 4 * self._long_long_int_ratio
 		self._root = self._create_node()
 		
 	def __dealloc__(Trie self):
@@ -36,7 +32,7 @@ cdef class Trie:
 		cdef Node *new_node 		
 		
 		new_node = <Node *> malloc(sizeof(Node))
-		new_node.subnodes = <Node **> malloc(sizeof(Node *) * 256)
+		new_node.subnodes = <Node ***> malloc(sizeof(Node **) * 8)
 		new_node.content_map = 0
 		
 		return new_node
@@ -60,17 +56,17 @@ cdef class Trie:
 		
 	cdef inline Node* _get_subnode(Trie self, Node *node, char position):
 		
-#		cdef int chunk
-#		cdef int bit
+		cdef int chunk
+		cdef int bit
 		cdef char mask
 		cdef Node *result
 		
-#		chunk = (position & 31) >> 5
-#		bit = position & 63
-		mask = (<char> 1) << ((position & 224) >> 5)
+		chunk = (position & 224) >> 5
+		bit = position & 31
+		mask = 1 << chunk
 		
 		if node.content_map & mask:
-			result = node.subnodes[position]
+			result = node.subnodes[chunk][bit]
 		else:
 			result = NULL
 			
@@ -78,21 +74,22 @@ cdef class Trie:
 		
 	cdef inline void _write_subnode(Trie self, Node *node, Node *subnode, char position):
 		
-		cdef int chunk
-#		cdef int bit
+		cdef int chunk 
+		cdef int bit
 		cdef char mask
 		
+		cdef int _chunk_size = sizeof(Node *) * 32
+		
 		chunk = ((position & 224) >> 5)
-#		bit = position & 63
-#		mask = <unsigned long long> 1 << bit
-		mask = (<char> 1) << chunk
-		#print position
+		bit = position & 31
+		mask = 1 << chunk
+		
 		if not (node.content_map & mask):
-			memset(&node.subnodes[chunk * 32], 0, 32 * sizeof(Node *))
-			#memset(&node.subnodes[0], 0, 255)
+			node.subnodes[chunk] = <Node**> malloc(_chunk_size)
+			memset(node.subnodes[chunk], 0, _chunk_size)
 		
 		node.content_map = node.content_map | mask
-		node.subnodes[position] = subnode
+		node.subnodes[chunk][bit] = subnode
 	
 	
 	cpdef add(Trie self, char *key, char *value):
@@ -111,7 +108,6 @@ cdef class Trie:
 			working_node = self._get_subnode(current_node, character)
 			
 			if working_node == NULL:
-				#print key, "x"
 				working_node = self._create_node()
 				self._write_subnode(current_node, working_node, character)
 			
