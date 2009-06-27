@@ -1,4 +1,8 @@
 
+include "platform.pxi"
+
+#####
+
 cdef extern from "stdlib.h":
 	void *malloc(size_t size)
 	void free(void *ptr)
@@ -6,16 +10,18 @@ cdef extern from "stdlib.h":
 cdef extern from "string.h":
 	size_t strlen(char *str)
 	void* memset(void *buffer, int ch, size_t count)
-	
-cdef extern from "math.h":
-	float ceil(float x)
-
+	 
 #####
 
+# purge(key)
+# remove(key)
+# getAll()
+# getReversed()
+
 cdef struct Node:
-	Node **subnodes[8]
+	Node **subnodes[CHUNKS_COUNT]
 	char *value
-	char content_map
+	CONTENT_MAP_TYPE content_map
 	
 cdef class Trie:
 	
@@ -23,6 +29,9 @@ cdef class Trie:
 	
 	def __cinit__(Trie self):
 		self._root = self._create_node()
+		
+	def __init__(Trie self, dictionary = {}):
+		""""""
 		
 	def __dealloc__(Trie self):
 		""""""
@@ -60,8 +69,8 @@ cdef class Trie:
 		cdef char mask
 		cdef Node *result
 		
-		chunk = (position & 224) >> 5
-		bit = position & 31
+		chunk = (position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT
+		bit = position & BIT_POSITION_MASK
 		mask = 1 << chunk
 		
 		if node.content_map & mask:
@@ -77,10 +86,10 @@ cdef class Trie:
 		cdef int bit
 		cdef char mask
 		
-		cdef int _chunk_size = sizeof(Node *) * 32
+		cdef int _chunk_size = sizeof(Node *) * CHUNK_SIZE
 		
-		chunk = ((position & 224) >> 5)
-		bit = position & 31
+		chunk = ((position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT)
+		bit = position & BIT_POSITION_MASK
 		mask = 1 << chunk
 		
 		if not (node.content_map & mask):
@@ -93,7 +102,7 @@ cdef class Trie:
 	
 	cpdef add(Trie self, char *key, char *value):
 		
-		cdef unsigned char character
+		cdef char character
 		cdef Node *current_node
 		cdef Node *working_node	
 		cdef int i, length
