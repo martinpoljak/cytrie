@@ -7,4 +7,4 @@ ELIF INT_SIZE == 8:
 ELIF INT_SIZE == 2:
 	include "platforms/platform_int2byte.pxi"
 ELSE:
-	include "platforms/platform_int1byte.pxi"
+	include "platforms/platform_char.pxi"
