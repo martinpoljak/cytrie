@@ -36,8 +36,6 @@ cdef class Trie:
 		cdef Node *new_node 		
 		
 		new_node = <Node *> malloc(sizeof(Node))
-		new_node.value = ""
-		
 		new_node.subnodes = <Node **> malloc(sizeof(Node *) * 256)
 		new_node.content_map = 0
 		
@@ -88,9 +86,10 @@ cdef class Trie:
 #		bit = position & 63
 #		mask = <unsigned long long> 1 << bit
 		mask = (<char> 1) << chunk
-		
+		#print position
 		if not (node.content_map & mask):
-			memset(&node.subnodes[chunk * 32], 0, 32)
+			memset(&node.subnodes[chunk * 32], 0, 32 * sizeof(Node *))
+			#memset(&node.subnodes[0], 0, 255)
 		
 		node.content_map = node.content_map | mask
 		node.subnodes[position] = subnode
@@ -112,6 +111,7 @@ cdef class Trie:
 			working_node = self._get_subnode(current_node, character)
 			
 			if working_node == NULL:
+				#print key, "x"
 				working_node = self._create_node()
 				self._write_subnode(current_node, working_node, character)
 			
