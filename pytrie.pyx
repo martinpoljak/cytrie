@@ -13,12 +13,12 @@ cdef extern from "math.h":
 #####
 
 cdef struct Node:
-	Node ***subnodes
+	Node **subnodes
 	char *value
-	unsigned long long *content_map
-
+	char content_map
+	
 cdef class Trie:
-
+	
 	cdef Node* _root
 	cdef int _long_long_int_ratio
 	cdef int _node_content_map_reset_size
@@ -32,16 +32,14 @@ cdef class Trie:
 		""""""
 		
 	cdef inline Node* _create_node(Trie self):
-
+		
 		cdef Node *new_node 		
-
+		
 		new_node = <Node *> malloc(sizeof(Node))
 		new_node.value = ""
 		
-		new_node.subnodes = <Node ***> malloc(sizeof(Node **) * 4)
-		
-		new_node.content_map = <unsigned long long *> malloc(sizeof(unsigned long long) * 4)
-		memset(new_node.content_map, 0, self._node_content_map_reset_size)
+		new_node.subnodes = <Node **> malloc(sizeof(Node *) * 256)
+		new_node.content_map = 0
 		
 		return new_node
 			
@@ -60,21 +58,21 @@ cdef class Trie:
 				break
 			
 		return current_node
-	
-
+		
+		
 	cdef inline Node* _get_subnode(Trie self, Node *node, char position):
 		
-		cdef int chunk
-		cdef int bit
-		cdef unsigned long long mask
+#		cdef int chunk
+#		cdef int bit
+		cdef char mask
 		cdef Node *result
 		
-		chunk = (position & 192) >> 6
-		bit = position & 63
-		mask = (<unsigned long long> 1) << bit
-
-		if node.content_map[chunk] & mask:
-			result = node.subnodes[chunk][bit]
+#		chunk = (position & 31) >> 5
+#		bit = position & 63
+		mask = (<char> 1) << ((position & 224) >> 5)
+		
+		if node.content_map & mask:
+			result = node.subnodes[position]
 		else:
 			result = NULL
 			
@@ -83,18 +81,19 @@ cdef class Trie:
 	cdef inline void _write_subnode(Trie self, Node *node, Node *subnode, char position):
 		
 		cdef int chunk
-		cdef int bit
-		cdef unsigned long long mask
-
-		chunk = (position & 192) >> 6
-		bit = position & 63
-		mask = <unsigned long long> 1 << bit
+#		cdef int bit
+		cdef char mask
 		
-		if node.content_map[chunk] == 0:
-			node.subnodes[chunk] = <Node **> malloc(sizeof(Node *) * 64)
-			
-		node.content_map[chunk] = node.content_map[chunk] | mask
-		node.subnodes[chunk][bit] = subnode
+		chunk = ((position & 224) >> 5)
+#		bit = position & 63
+#		mask = <unsigned long long> 1 << bit
+		mask = (<char> 1) << chunk
+		
+		if not (node.content_map & mask):
+			memset(&node.subnodes[chunk * 32], 0, 32)
+		
+		node.content_map = node.content_map | mask
+		node.subnodes[position] = subnode
 	
 	
 	cpdef add(Trie self, char *key, char *value):
@@ -115,11 +114,12 @@ cdef class Trie:
 			if working_node == NULL:
 				working_node = self._create_node()
 				self._write_subnode(current_node, working_node, character)
-				
+			
 			current_node = working_node
 		
 		current_node.value = value
-
+		
+		
 	cpdef get(Trie self, char *key):
 		
 		cdef Node *node

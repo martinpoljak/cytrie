@@ -19,7 +19,7 @@ for i in range (0, 1000000):
 
 
 	
-for i in range(0, 1000000):
-	foo = trie.get(str(i))
+#for i in range(0, 1000000):
+#	foo = trie.get(str(i))
 #	foo = trie[str(i)]
 
