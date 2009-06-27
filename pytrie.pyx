@@ -13,7 +13,7 @@ cdef extern from "math.h":
 #####
 
 cdef struct Node:
-	Node ***subnodes
+	Node **subnodes[8]
 	char *value
 	char content_map
 	
@@ -32,7 +32,6 @@ cdef class Trie:
 		cdef Node *new_node 		
 		
 		new_node = <Node *> malloc(sizeof(Node))
-		new_node.subnodes = <Node ***> malloc(sizeof(Node **) * 8)
 		new_node.content_map = 0
 		
 		return new_node
