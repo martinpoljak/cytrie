@@ -15,14 +15,14 @@ cdef extern from "string.h":
 
 # purge(key)
 # remove(key)
-# getAll()
-# getReversed()
-# len()
+# reversed()
+# dictionary()
+# len() -- OK
 # clear()
 # fromkeys(seq[, value)
 # copy()
-# get(key[, default])
-# has_key
+# get(key[, default]) -- only as get(key)
+# has_key(key) -- OK
 # items()
 # keys()
 # setdefault(key[, default])
@@ -37,6 +37,9 @@ cdef struct Node:
 	Node **subnodes[CHUNKS_COUNT]
 	char *value
 	CONTENT_MAP_TYPE content_map
+	
+#cdef struct _NodePosition:
+	
 	
 cdef class Trie:
 	
@@ -105,7 +108,7 @@ cdef class Trie:
 		
 		cdef int chunk = (position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT
 		cdef int bit = position & BIT_POSITION_MASK
-		cdef char mask = 1 << chunk
+		cdef CONTENT_MAP_TYPE mask = 1 << chunk
 		
 		cdef Node *result
 		
@@ -122,7 +125,7 @@ cdef class Trie:
 		
 		cdef int chunk = ((position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT)
 		cdef int bit = position & BIT_POSITION_MASK
-		cdef char mask = 1 << chunk
+		cdef CONTENT_MAP_TYPE mask = 1 << chunk
 		
 		if not (node.content_map & mask):
 			node.subnodes[chunk] = <Node**> malloc(_chunk_size)
@@ -173,5 +176,21 @@ cdef class Trie:
 			raise KeyError
 		
 		return node.value
-
-
+	
+	def has_key(Trie self, char *key):
+		
+		if self._find_node(key):
+			return True
+		else:
+			return False
+			
+#	def remove(Trie self, char *key):
+#		
+#		cdef char* parent_key 
+#		cdef int key_length = strlen(key) - 1
+#		
+#		memcpy(key, 0, sizeof(char) * key_length, parent_key)
+#		
+#		cdef Node *node = self._find_node(parent_key)
+#		
+#		if key[key_length]
