@@ -135,8 +135,7 @@ cdef class Trie:
 		
 		current_node.value = value
 		
-		
-	cpdef get(Trie self, char *key):
+	def get(Trie self, char *key):
 		
 		cdef Node *node = self._find_node(key)
 		
