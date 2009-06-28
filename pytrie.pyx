@@ -30,12 +30,12 @@ cdef class Trie:
 	def __cinit__(Trie self):
 		self._root = self._create_node()
 		
-	def __init__(Trie self, dictionary = {}):
-		""""""
+	def __init__(Trie self, dict dictionary = {}):
+		if len(dictionary) > 0:
+			self.add_dictionary(dictionary)
 		
 	def __dealloc__(Trie self):
 		self._dealloc_node(self._root)
-		""""""
 		
 	cdef inline void _dealloc_node(Trie self, Node* node):
 		
@@ -44,6 +44,7 @@ cdef class Trie:
 		cdef Node *processed_node
 		cdef int i, j
 		
+		# Deallocates the node structures
 		if node.content_map:
 			for i in range(0, chunks_count):
 				if node.content_map & (1 << i):
@@ -54,6 +55,8 @@ cdef class Trie:
 							self._dealloc_node(processed_node)
 						
 					free(node.subnodes[i])
+					
+		# Deallocates the node
 		free(node)
 		
 	cdef inline Node* _create_node(Trie self):
@@ -134,6 +137,16 @@ cdef class Trie:
 			current_node = working_node
 		
 		current_node.value = value
+		
+		
+	cpdef add_dictionary(Trie self, dict dictionary):
+		
+		cdef char *string
+		
+		for key, item in dictionary.items():
+			string = _ = str(item)
+			self.add(key, string)
+			
 		
 	def get(Trie self, char *key):
 		
