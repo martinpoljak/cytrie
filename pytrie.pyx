@@ -17,6 +17,21 @@ cdef extern from "string.h":
 # remove(key)
 # getAll()
 # getReversed()
+# len()
+# clear()
+# fromkeys(seq[, value)
+# copy()
+# get(key[, default])
+# has_key
+# items()
+# keys()
+# setdefault(key[, default])
+# update([other])
+# values()
+# del d[key]
+# key in d
+# key not in d
+# d[key]
 
 cdef struct Node:
 	Node **subnodes[CHUNKS_COUNT]
@@ -26,6 +41,7 @@ cdef struct Node:
 cdef class Trie:
 	
 	cdef Node *_root
+	cdef int _len
 	
 	def __cinit__(Trie self):
 		self._root = self._create_node()
@@ -137,6 +153,7 @@ cdef class Trie:
 			current_node = working_node
 		
 		current_node.value = value
+		self._len += 1
 		
 		
 	cpdef add_dictionary(Trie self, dict dictionary):
