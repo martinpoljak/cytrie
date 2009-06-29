@@ -34,12 +34,18 @@ cdef extern from "string.h":
 # key not in d
 # d[key]
 
+cdef struct DeallocatingHelper:
+	int last_chunk
+	int last_bit
+
 cdef struct Node:
 	Node **subnodes[CHUNKS_COUNT]
-	char *value
-	CONTENT_MAP_TYPE content_map
-	int has_content
 	Node *parent_node
+	char *value
+	int has_content
+	CONTENT_MAP_TYPE content_map
+	DeallocatingHelper _dealloc
+
 
 	
 cdef class Trie:
@@ -56,10 +62,54 @@ cdef class Trie:
 		
 	def __dealloc__(Trie self):
 		self._dealloc_node(self._root)
-		#print "xxx"
 		
 	cdef inline void _dealloc_node(Trie self, Node* node):
 		
+		cdef Node *current_node = node
+		cdef Node *processed_node
+		cdef Node *deallocated_node
+		
+		cdef int first = True
+		cdef int break_it = False 
+		
+		current_node._dealloc.last_chunk = 0
+		current_node._dealloc.last_bit = 0
+		
+		while (current_node != node) or first:
+			first = False
+			
+			while current_node.content_map:
+				for i in range(current_node._dealloc.last_chunk, CHUNKS_COUNT):
+					if node.content_map & (1 << i):
+						for j in range(current_node._dealloc.last_bit + 1, CHUNK_SIZE):
+							processed_node = node.subnodes[i][j]
+							
+							if processed_node:
+								current_node._dealloc.last_chunk = i
+								current_node._dealloc.last_bit = j
+								
+								processed_node._dealloc.last_chunk = 0
+								processed_node._dealloc.last_bit = 0								
+								
+								current_node = processed_node
+								
+								break_it = True
+								break
+								
+						if break_it:
+							break
+							
+				if break_it:
+					break_it = False
+					break
+					
+			deallocated_node = current_node
+			current_node = current_node.parent_node
+			
+			free(deallocated_node.value)
+			free(deallocated_node)
+			
+		"""
 		cdef Node *processed_node
 		cdef int i, j
 		
@@ -81,6 +131,7 @@ cdef class Trie:
 						
 		# Deallocates the node
 		free(node)
+		"""
 		
 		
 	cdef inline Node* _create_node(Trie self):
