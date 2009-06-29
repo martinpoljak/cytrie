@@ -14,7 +14,7 @@ cdef extern from "string.h":
 #####
 
 # purge(key)
-# remove(key)
+# remove(key) -- OK
 # reversed()
 # dictionary()
 # len() -- OK
@@ -78,21 +78,17 @@ cdef class Trie:
 		
 	cdef inline Node* _create_node(Trie self):
 		
-		cdef Node *new_node 		
-		
-		new_node = <Node *> malloc(sizeof(Node))
+		cdef Node *new_node = <Node *> malloc(sizeof(Node))
 		new_node.content_map = 0
 		
 		return new_node
 			
 	cdef inline Node* _find_node(Trie self, char *key):
 		
-		cdef Node *current_node
+		cdef Node *current_node = self._root
 		cdef int length = strlen(key) - 1
 		cdef int i
 		
-		current_node = self._root
-
 		for i in range(0, length):
 			current_node = self._get_subnode(current_node, key[i])
 			
@@ -139,7 +135,7 @@ cdef class Trie:
 		cdef char character
 		cdef Node *working_node	
 		cdef int i
-	
+		
 		cdef Node *current_node = self._root
 		cdef int length = strlen(key) - 1		
 		
@@ -175,41 +171,52 @@ cdef class Trie:
 			raise KeyError
 		
 		return node.value
-	
+		
 	def has_key(Trie self, char *key):
 		
 		if self._find_node(key):
 			return True
 		else:
 			return False
-	
-	
+			
+			
 	def remove(Trie self, char *key):
 		
-		cdef int key_length = strlen(key)
-		cdef char* parent_key = <char *> malloc(key_length * sizeof(char))
-		key_length -= 1		
+		cdef int key_length = strlen(key) - 1
 		
-# DOLADIT	memcpy(key, 0, sizeof(char) * key_length, parent_key)
-		key[key_length + 1] = 0
 		
-		cdef Node *node = self._find_node(parent_key)
-		cdef char position = key[key_length]
+		# Looks for node
 		
+		cdef Node *current_node = self._root
+		cdef int length = key_length - 1
+		cdef int i
+		
+		for i in range(0, length):
+			current_node = self._get_subnode(current_node, key[i])
+			
+			if current_node == NULL:		
+				break
+		
+		# Removes him
+		
+		cdef char position
 		cdef int chunk
 		cdef int bit
-		cdef Node *subnode
 		cdef Node **chunks
 		
-		if node.content_map:
-		
-			chunk = ((position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT)
+		if current_node:
 			
-			if (node.content_map & (1 << chunk)):
-
-				bit = position & BIT_POSITION_MASK
-				chunks = node.subnodes[chunk]
+			position = key[key_length]
+			
+			if current_node.content_map:
+			
+				chunk = ((position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT)
 				
-				self._dealloc_node(chunks[bit])
-				chunks[bit] = NULL
-	
+				if (current_node.content_map & (1 << chunk)):
+					
+					bit = position & BIT_POSITION_MASK
+					chunks = current_node.subnodes[chunk]
+					
+					self._dealloc_node(chunks[bit])
+					chunks[bit] = NULL
+					
