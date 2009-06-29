@@ -16,7 +16,7 @@ for i in range (0, 1000000):
 	addition = str(i)
 	trie.add(addition, addition)
 	
-print trie.get("12")
+#trie.cut_clean("12")
 
 #trie.add("abc", "def")
 #trie.add("ghi", "jkl")

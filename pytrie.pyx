@@ -39,6 +39,7 @@ cdef struct Node:
 	char *value
 	CONTENT_MAP_TYPE content_map
 	int has_content
+	Node *parent_node
 
 	
 cdef class Trie:
@@ -151,12 +152,14 @@ cdef class Trie:
 		
 		node.content_map = node.content_map | mask
 		node.subnodes[chunk][position & BIT_POSITION_MASK] = subnode
+		
+		subnode.parent_node = node
 	
 	
 	cdef inline void _add(Trie self, char *key, char *value):
 		
 		cdef char character
-		cdef Node *working_node	
+		cdef Node *working_node
 		cdef int i
 		
 		cdef Node *current_node = self._root
@@ -167,15 +170,18 @@ cdef class Trie:
 			character = key[i]
 			working_node = self._get_subnode(current_node, character)
 			
-			if working_node == NULL:
-				working_node = self._create_node()
+			if working_node == NULL:				
+				working_node = <Node *> malloc(sizeof(Node))
+				working_node.content_map = 0
+				working_node.has_content = False
+				
 				self._write_subnode(current_node, working_node, character)
 			
 			current_node = working_node
-			
-		current_node.value = value
 		
+		current_node.value = value
 		current_node.has_content = True
+		
 		self._len += 1
 		
 	def add(Trie self, char *key, char *value):
