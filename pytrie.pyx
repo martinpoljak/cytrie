@@ -71,6 +71,7 @@ cdef class Trie:
 		
 		cdef int first = True
 		cdef int break_it = False 
+		cdef int i, j
 		
 		current_node._dealloc.last_chunk = 0
 		current_node._dealloc.last_bit = 0
@@ -78,6 +79,7 @@ cdef class Trie:
 		while (current_node != node) or first:
 			first = False
 			
+			# Traversing
 			while current_node.content_map:
 				for i in range(current_node._dealloc.last_chunk, CHUNKS_COUNT):
 					if node.content_map & (1 << i):
@@ -106,7 +108,17 @@ cdef class Trie:
 			deallocated_node = current_node
 			current_node = current_node.parent_node
 			
-			free(deallocated_node.value)
+			# Deallocating the node content
+			
+			for i in range(0, CHUNKS_COUNT):
+				if deallocated_node.content_map & (1 << i):
+					free(deallocated_node.subnodes[i])
+			
+			if deallocated_node.has_content:
+				print deallocated_node.value
+				free(deallocated_node.value)
+			
+			free(deallocated_node.subnodes)
 			free(deallocated_node)
 			
 		"""
