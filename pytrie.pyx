@@ -10,6 +10,7 @@ cdef extern from "stdlib.h":
 cdef extern from "string.h":
 	size_t strlen(char *str)
 	void* memset(void *buffer, int ch, size_t count)
+	void* strncpy(char *destination, char *source, size_t count)
 	 
 #####
 
@@ -37,6 +38,7 @@ cdef struct Node:
 	Node **subnodes[CHUNKS_COUNT]
 	char *value
 	CONTENT_MAP_TYPE content_map
+	int has_content
 
 	
 cdef class Trie:
@@ -53,50 +55,71 @@ cdef class Trie:
 		
 	def __dealloc__(Trie self):
 		self._dealloc_node(self._root)
+		#print "xxx"
 		
 	cdef inline void _dealloc_node(Trie self, Node* node):
 		
-		cdef int chunks_count = CHUNKS_COUNT - 1
-		cdef int chunk_size = CHUNK_SIZE - 1
 		cdef Node *processed_node
 		cdef int i, j
 		
-		# Deallocates the node structures
+		# Traverses through the tree
 		if node.content_map:
-			for i in range(0, chunks_count):
+			for i in range(0, CHUNKS_COUNT):
 				if node.content_map & (1 << i):
-					for j in range(0, chunk_size):
+					for j in range(0, CHUNK_SIZE):
 						processed_node = node.subnodes[i][j]
 						
-						if processed_node != NULL:
+						if processed_node:
 							self._dealloc_node(processed_node)
 						
 					free(node.subnodes[i])
 					
+		if node.has_content:
+			free(node.value)
+			self._len -= 1
+						
 		# Deallocates the node
 		free(node)
+		
 		
 	cdef inline Node* _create_node(Trie self):
 		
 		cdef Node *new_node = <Node *> malloc(sizeof(Node))
 		new_node.content_map = 0
+		new_node.has_content = False
 		
 		return new_node
 			
 	cdef inline Node* _find_node(Trie self, char *key):
 		
 		cdef Node *current_node = self._root
-		cdef int length = strlen(key) - 1
+		cdef int length = strlen(key)
 		cdef int i
 		
 		for i in range(0, length):
 			current_node = self._get_subnode(current_node, key[i])
 			
-			if current_node == NULL:		
+			if current_node == NULL:
 				break
 			
 		return current_node
 		
+	cdef inline void _cut_node(Trie self, Node *node):
+		cdef Node *processed_node
+		cdef int i, j
+		
+		# Traverses through the tree
+		if node.content_map:
+			for i in range(0, CHUNKS_COUNT):
+				if node.content_map & (1 << i):
+					for j in range(0, CHUNK_SIZE):
+						processed_node = node.subnodes[i][j]
+						
+						if processed_node:
+							self._cut_node(processed_node)
+							
+					node.has_content = False
+					self._len -= 1
 		
 	cdef inline Node* _get_subnode(Trie self, Node *node, char position):
 		
@@ -130,14 +153,14 @@ cdef class Trie:
 		node.subnodes[chunk][position & BIT_POSITION_MASK] = subnode
 	
 	
-	cpdef add(Trie self, char *key, char *value):
+	cdef inline void _add(Trie self, char *key, char *value):
 		
 		cdef char character
 		cdef Node *working_node	
 		cdef int i
 		
 		cdef Node *current_node = self._root
-		cdef int length = strlen(key) - 1		
+		cdef int length = strlen(key)		
 		
 		for i in range(0, length):
 			
@@ -149,10 +172,19 @@ cdef class Trie:
 				self._write_subnode(current_node, working_node, character)
 			
 			current_node = working_node
-		
+			
 		current_node.value = value
+		
+		current_node.has_content = True
 		self._len += 1
 		
+	def add(Trie self, char *key, char *value):
+		
+		cdef int length = strlen(value) + 1
+		cdef char *_value = <char *> malloc(sizeof(char) * length)
+		strncpy(_value, value, length)
+		
+		self._add(key, _value)
 		
 	cpdef add_dictionary(Trie self, dict dictionary):
 		
@@ -170,7 +202,10 @@ cdef class Trie:
 		if node == NULL:
 			raise KeyError
 		
-		return node.value
+		if node.has_content:
+			return node.value
+		else:
+			raise KeyError
 		
 	def has_key(Trie self, char *key):
 		
@@ -178,17 +213,17 @@ cdef class Trie:
 			return True
 		else:
 			return False
-			
-			
+	
 	def remove(Trie self, char *key):
+		cdef Node *node = self._find_node(key)
 		
-		cdef int key_length = strlen(key) - 1
-		
-		
-		# Looks for node
-		
+		if node:
+			node.has_content = False
+			self._len -= 1
+	"""
+	def remove_clean(Trie self, char *key):
 		cdef Node *current_node = self._root
-		cdef int length = key_length - 1
+		cdef int length = strlen(key) - 2
 		cdef int i
 		
 		for i in range(0, length):
@@ -197,26 +232,18 @@ cdef class Trie:
 			if current_node == NULL:		
 				break
 		
-		# Removes him
+		if current_node
+	"""
+			
+	def cut(Trie self, char *mask):
+		cdef Node *node = self._find_node(mask)
 		
-		cdef char position
-		cdef int chunk
-		cdef int bit
-		cdef Node **chunks
+		if node:
+			self._cut_node(node)
+	
+	def cut_clean(Trie self, char *mask):
+		cdef Node *node = self._find_node(mask)
 		
-		if current_node:
-			
-			position = key[key_length]
-			
-			if current_node.content_map:
-			
-				chunk = ((position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT)
-				
-				if (current_node.content_map & (1 << chunk)):
-					
-					bit = position & BIT_POSITION_MASK
-					chunks = current_node.subnodes[chunk]
-					
-					self._dealloc_node(chunks[bit])
-					chunks[bit] = NULL
-					
+		if node:
+			self._dealloc_node(node)
+	
