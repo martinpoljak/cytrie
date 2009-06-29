@@ -37,9 +37,7 @@ cdef struct Node:
 	Node **subnodes[CHUNKS_COUNT]
 	char *value
 	CONTENT_MAP_TYPE content_map
-	
-#cdef struct _NodePosition:
-	
+
 	
 cdef class Trie:
 	
@@ -106,17 +104,19 @@ cdef class Trie:
 		
 	cdef inline Node* _get_subnode(Trie self, Node *node, char position):
 		
-		cdef int chunk = (position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT
-		cdef int bit = position & BIT_POSITION_MASK
-		cdef CONTENT_MAP_TYPE mask = 1 << chunk
-		
+		cdef int chunk
 		cdef Node *result
 		
-		if node.content_map & mask:
-			result = node.subnodes[chunk][bit]
+		if node.content_map:
+			chunk = (position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT		
+			
+			if node.content_map & (1 << chunk):
+				result = node.subnodes[chunk][position & BIT_POSITION_MASK]
+			else:
+				result = NULL
 		else:
 			result = NULL
-			
+				
 		return result
 		
 	cdef inline void _write_subnode(Trie self, Node *node, Node *subnode, char position):
@@ -124,7 +124,6 @@ cdef class Trie:
 		cdef int _chunk_size = sizeof(Node *) * CHUNK_SIZE
 		
 		cdef int chunk = ((position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT)
-		cdef int bit = position & BIT_POSITION_MASK
 		cdef CONTENT_MAP_TYPE mask = 1 << chunk
 		
 		if not (node.content_map & mask):
@@ -132,7 +131,7 @@ cdef class Trie:
 			memset(node.subnodes[chunk], 0, _chunk_size)
 		
 		node.content_map = node.content_map | mask
-		node.subnodes[chunk][bit] = subnode
+		node.subnodes[chunk][position & BIT_POSITION_MASK] = subnode
 	
 	
 	cpdef add(Trie self, char *key, char *value):
@@ -183,14 +182,34 @@ cdef class Trie:
 			return True
 		else:
 			return False
+	
+	
+	def remove(Trie self, char *key):
+		
+		cdef int key_length = strlen(key)
+		cdef char* parent_key = <char *> malloc(key_length * sizeof(char))
+		key_length -= 1		
+		
+# DOLADIT	memcpy(key, 0, sizeof(char) * key_length, parent_key)
+		key[key_length + 1] = 0
+		
+		cdef Node *node = self._find_node(parent_key)
+		cdef char position = key[key_length]
+		
+		cdef int chunk
+		cdef int bit
+		cdef Node *subnode
+		cdef Node **chunks
+		
+		if node.content_map:
+		
+			chunk = ((position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT)
 			
-#	def remove(Trie self, char *key):
-#		
-#		cdef char* parent_key 
-#		cdef int key_length = strlen(key) - 1
-#		
-#		memcpy(key, 0, sizeof(char) * key_length, parent_key)
-#		
-#		cdef Node *node = self._find_node(parent_key)
-#		
-#		if key[key_length]
+			if (node.content_map & (1 << chunk)):
+
+				bit = position & BIT_POSITION_MASK
+				chunks = node.subnodes[chunk]
+				
+				self._dealloc_node(chunks[bit])
+				chunks[bit] = NULL
+	
