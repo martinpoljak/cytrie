@@ -117,6 +117,7 @@ cdef class Trie:
 			
 			# Deallocating the node content
 			if deallocated_node.has_content:
+				self._len -= 1
 				free(deallocated_node.value)
 			
 			free(deallocated_node)
