@@ -65,30 +65,37 @@ cdef class Trie:
 		
 	cdef inline void _dealloc_node(Trie self, Node* node):
 		
+		"""
+		Go around the tree non-recursive alghorithm.
+		"""
+
 		cdef Node *current_node = node
 		cdef Node *processed_node
 		cdef Node *deallocated_node
 		
-		cdef int first = True
 		cdef int break_it = False 
 		cdef int i, j
+		
+		cdef CONTENT_MAP_TYPE mask
 		
 		current_node._dealloc.last_chunk = 0
 		current_node._dealloc.last_bit = 0
 		
-		while (current_node != node) or first:
-			first = False
-			
+		while current_node:
+
 			# Traversing
 			while current_node.content_map:
+				
 				for i in range(current_node._dealloc.last_chunk, CHUNKS_COUNT):
-					if node.content_map & (1 << i):
-						for j in range(current_node._dealloc.last_bit + 1, CHUNK_SIZE):
-							processed_node = node.subnodes[i][j]
-							
+					
+					mask = 1 << i
+					if node.content_map & mask:
+						for j in range(current_node._dealloc.last_bit, CHUNK_SIZE):
+							processed_node = current_node.subnodes[i][j]
+
 							if processed_node:
 								current_node._dealloc.last_chunk = i
-								current_node._dealloc.last_bit = j
+								current_node._dealloc.last_bit = j + 1
 								
 								processed_node._dealloc.last_chunk = 0
 								processed_node._dealloc.last_bit = 0								
@@ -97,29 +104,23 @@ cdef class Trie:
 								
 								break_it = True
 								break
-								
-						if break_it:
-							break
 							
-				if break_it:
-					break_it = False
-					break
-					
+						if break_it:
+							break_it = False
+							break
+						
+						current_node.content_map = current_node.content_map ^ mask
+						free(current_node.subnodes[i])
+															
 			deallocated_node = current_node
 			current_node = current_node.parent_node
 			
 			# Deallocating the node content
-			
-			for i in range(0, CHUNKS_COUNT):
-				if deallocated_node.content_map & (1 << i):
-					free(deallocated_node.subnodes[i])
-			
 			if deallocated_node.has_content:
-				print deallocated_node.value
 				free(deallocated_node.value)
 			
-			free(deallocated_node.subnodes)
 			free(deallocated_node)
+			
 			
 		"""
 		cdef Node *processed_node
@@ -151,6 +152,7 @@ cdef class Trie:
 		cdef Node *new_node = <Node *> malloc(sizeof(Node))
 		new_node.content_map = 0
 		new_node.has_content = False
+		new_node.parent_node = NULL
 		
 		return new_node
 			
