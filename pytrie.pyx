@@ -62,7 +62,7 @@ cdef class Trie:
 		
 	def __dealloc__(Trie self):
 		self._dealloc_node(self._root)
-		
+	
 	cdef inline void _dealloc_node(Trie self, Node* node):
 		
 		"""
