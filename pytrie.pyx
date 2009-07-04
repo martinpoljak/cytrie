@@ -109,9 +109,10 @@ cdef class Trie:
 		current_node._traversing.last_bit = 0
 		
 		# Clears the parent node record
+		
 		cdef NodePosition *pn_info = &(node.parent)
 		
-		if node.parent.node:
+		if pn_info.node:
 			pn_info.node.subnodes[pn_info.chunk][pn_info.bit] = NULL
 			pn_info.node.subnodes_count -= 1
 			
@@ -214,6 +215,16 @@ cdef class Trie:
 		current_node._traversing.last_chunk = 0
 		current_node._traversing.last_bit = 0
 		current_node._traversing.content_map = current_node.content_map
+		
+		# Clears the parent node record
+		
+		cdef NodePosition *pn_info = &(node.parent)
+		
+		if pn_info.node:
+			pn_info.node.subnodes[pn_info.chunk][pn_info.bit] = NULL
+			pn_info.node.subnodes_count -= 1
+		
+		# Do
 		
 		while current_node != node.parent.node:
 
@@ -390,7 +401,12 @@ cdef class Trie:
 					if (parent_node == NULL) or (parent_node.subnodes_count > 1) or parent_node.has_content:
 						self._dealloc_node(node)
 						break
-					else:
+					else:   
+						free(parent_node.subnodes[node.parent.chunk])
+						parent_node.content_map = 0
+						
+						self._dealloc_leaf_node(node)
+						
 						node = parent_node
 						parent_node = node.parent.node
 						
