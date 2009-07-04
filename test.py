@@ -25,8 +25,8 @@ for i in range (0, 1000000):
 	addition = str(i)
 	trie.add(addition, addition)
 
-keys = trie.keys()
-print keys[0]
+items = trie.items()
+print items[0:100]
 #print len(keys)
 
 

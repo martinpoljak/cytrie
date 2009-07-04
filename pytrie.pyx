@@ -27,11 +27,11 @@ cdef extern from "string.h":
 # copy()
 # get(key[, default]) -- OK, only as get(key)
 # has_key(key) -- OK
-# items() -- OK
-# keys()
+# items()
+# keys() -- OK
 # setdefault(key[, default])
 # update([other])
-# values()
+# values() -- OK
 # del d[key]
 # key in d
 # key not in d
@@ -507,7 +507,7 @@ cdef class Trie:
 		self._dealloc_node(self._root)
 		self._root = self._create_node()
 		
-	def items(Trie self):
+	def values(Trie self):
 		
 		"""
 		Go around the tree non-recursive alghorithm.
@@ -642,4 +642,82 @@ cdef class Trie:
 		
 		free(key_buffer)
 		return result
+		
+		
+	def items(Trie self):
+		
+		"""
+		Go around the tree non-recursive alghorithm.
+		"""
+
+		cdef Node *current_node = self._root
+		cdef Node *processed_node
+		
+		cdef BOOL break_it = False 
+		cdef int i, j
+		
+		cdef CONTENT_MAP_TYPE mask
+		cdef list result = []
+		cdef tuple item
+		
+		cdef int level = 0
+		cdef int max_level = 4
+		cdef char *key_buffer = <char *> malloc(5 * sizeof(char))
+		
+		current_node._traversing.last_chunk = 0
+		current_node._traversing.last_bit = 0
+		current_node._traversing.content_map = current_node.content_map
+		
+		# Do
+		
+		while current_node != self._root.parent.node:
+
+			# Traversing
+			while current_node._traversing.content_map:
+				
+				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
+					
+					mask = 1 << i
+					if current_node._traversing.content_map & mask:
+						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
+							processed_node = current_node.subnodes[i][j]
+
+							if processed_node:
+								current_node._traversing.last_chunk = i
+								current_node._traversing.last_bit = j + 1
+								
+								processed_node._traversing.last_chunk = 0
+								processed_node._traversing.last_bit = 0	
+								processed_node._traversing.content_map = processed_node.content_map
+								
+								current_node = processed_node
+								
+								if level > max_level:
+									max_level = level
+									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char))
+									
+								key_buffer[level] = i * CHUNK_SIZE + j
+								level += 1
+									
+								break_it = True								
+								break
+							
+						if break_it:
+							break_it = False
+							break
+					
+						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
+			
+			# Checking the node content out
+			if current_node.has_content:
+				key_buffer[level] = 0
+				item = (key_buffer, current_node.value)
+				result.append(item)
+			
+			current_node = current_node.parent.node
+			level -= 1
+		
+		free(key_buffer)
+		return result
+		
 
