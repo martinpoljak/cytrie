@@ -34,6 +34,7 @@ cdef extern from "string.h":
 # key not in d
 # d[key]
 
+cdef struct Node	# Forward
 
 cdef struct TraversingHelper:
 	int last_chunk
@@ -41,7 +42,7 @@ cdef struct TraversingHelper:
 	CONTENT_MAP_TYPE bitmap
 	
 cdef struct NodePosition:
-	void *node
+	Node *node
 	int chunk
 	int bit
 
@@ -70,6 +71,19 @@ cdef class Trie:
 	def __init__(Trie self, dict dictionary = {}):
 		if len(dictionary) > 0:
 			self.add_dictionary(dictionary)
+
+	"""
+	
+	# Probably not compatible with Cython at this time (because of 'isclass')
+	
+	def __init__(Trie self, iterable = []):
+		if len(iterable) > 0:
+			if isclass(iterable, dict):
+				self.add_dictionary(iterable)
+			else:
+				self.add_iterable(iterable)
+	"""
+
 		
 	def __dealloc__(Trie self):
 		self._dealloc_node(self._root)
@@ -96,12 +110,12 @@ cdef class Trie:
 		cdef NodePosition *pn_info = &(node.parent)
 		
 		if node.parent.node:
-			(<Node *> pn_info.node).subnodes[pn_info.chunk][pn_info.bit] = NULL
-			(<Node *> pn_info.node).subnodes_count -= 1
+			pn_info.node.subnodes[pn_info.chunk][pn_info.bit] = NULL
+			pn_info.node.subnodes_count -= 1
 			
 		# Do
 		
-		while current_node != <Node *> node.parent.node:
+		while current_node != node.parent.node:
 
 			# Traversing
 			while current_node.content_map:
@@ -133,7 +147,7 @@ cdef class Trie:
 						free(current_node.subnodes[i])
 															
 			deallocated_node = current_node
-			current_node = <Node *> current_node.parent.node
+			current_node = current_node.parent.node
 			
 			# Deallocating the node content
 			if deallocated_node.has_content:
@@ -214,7 +228,7 @@ cdef class Trie:
 		current_node._traversing.last_bit = 0
 		current_node._traversing.bitmap = current_node.content_map
 		
-		while current_node != <Node *> node.parent.node:
+		while current_node != node.parent.node:
 
 			# Traversing
 			while current_node._traversing.bitmap:
@@ -251,7 +265,7 @@ cdef class Trie:
 				print current_node.value
 				current_node.has_content = False
 			
-			current_node = <Node *> current_node.parent.node
+			current_node = current_node.parent.node
 		
 		"""
 		cdef Node *processed_node
@@ -355,6 +369,13 @@ cdef class Trie:
 			string = _ = str(item)
 			self.add(key, string)
 			
+	def add_iterable(Trie self, iterable):
+		
+		cdef char *string
+				
+		for item in iterable:
+			string = _ = str(item)
+			self.add(string, string)
 		
 	def get(Trie self, char *key):
 		
@@ -391,7 +412,7 @@ cdef class Trie:
 				node.has_content = False
 			
 			else:
-				parent_node = <Node *> node.parent.node
+				parent_node = node.parent.node
 				
 				while True:
 					
@@ -400,7 +421,7 @@ cdef class Trie:
 						break
 					else:
 						node = parent_node
-						parent_node = <Node *> node.parent.node
+						parent_node = node.parent.node
 						
 			self._len -= 1
 						

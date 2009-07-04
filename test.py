@@ -16,6 +16,7 @@ for i in range (0, 1000000):
 	addition = str(i)
 	dict[addition] = addition
 """	
+work = []
 
 trie = pytrie.Trie()
 #trie.add_dictionary(dict)
