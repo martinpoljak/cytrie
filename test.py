@@ -8,18 +8,26 @@ for i in range (0, 10000000):
 	addition = str(i)
 	trie[addition] = addition
 """
-	
+"""
+dict = {}
+
+for i in range (0, 1000000):
+
+	addition = str(i)
+	dict[addition] = addition
+"""	
 
 trie = pytrie.Trie()
+#trie.add_dictionary(dict)
 
-#for i in range (0, 1000000):
-#	addition = str(i)
-#	trie.add(addition, addition)
+for i in range (0, 1000000):
+	addition = str(i)
+	trie.add(addition, addition)
 
-trie.add("1", "1")
-trie.add("12345", "12345")
-	
-trie.remove_clean("12345")
+#trie.add("1", "1")
+#trie.add("12345", "12345")
+#	
+#trie.remove_clean("12345")
 
 #trie.add("abc", "def")
 #trie.add("ghi", "jkl")

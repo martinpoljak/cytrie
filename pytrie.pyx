@@ -14,7 +14,7 @@ cdef extern from "string.h":
 	 
 #####
 
-# purge(key)
+# purge(key) -- OK, as remove_clean(key)
 # remove(key) -- OK
 # reversed()
 # dictionary()
@@ -22,7 +22,7 @@ cdef extern from "string.h":
 # clear()
 # fromkeys(seq[, value)
 # copy()
-# get(key[, default]) -- only as get(key)
+# get(key[, default]) -- OK, only as get(key)
 # has_key(key) -- OK
 # items()
 # keys()
@@ -138,14 +138,14 @@ cdef class Trie:
 			# Deallocating the node content
 			if deallocated_node.has_content:
 				self._len -= 1
-				print deallocated_node.value
+				#print deallocated_node.value
 				free(deallocated_node.value)
 			
 			free(deallocated_node)
 			
 			
 			
-		print "return"
+		#print "return"
 		
 		"""
 		cdef Node *processed_node
@@ -339,7 +339,7 @@ cdef class Trie:
 		
 		self._len += 1
 		
-	def add(Trie self, char *key, char *value):
+	cpdef add(Trie self, char *key, char *value):
 		
 		cdef int length = strlen(value) + 1
 		cdef char *_value = <char *> malloc(sizeof(char) * length)
@@ -347,7 +347,7 @@ cdef class Trie:
 		
 		self._add(key, _value)
 		
-	cpdef add_dictionary(Trie self, dict dictionary):
+	def add_dictionary(Trie self, dict dictionary):
 		
 		cdef char *string
 		
