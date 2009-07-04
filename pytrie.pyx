@@ -29,7 +29,7 @@ cdef extern from "string.h":
 # has_key(key) -- OK
 # items() -- OK
 # keys() -- OK
-# setdefault(key[, default])
+# setdefault(key[, default]) -- OK
 # update([other]) -- OK
 # values() -- OK
 # del d[key]
@@ -38,6 +38,8 @@ cdef extern from "string.h":
 # d[key]
 
 # + fetching only some subtree by keys(), list(), dictionary(), reversed(), values() and copy() method
+# + neodalokovavaji se pole jen oznacena has_content = False
+# + sahame do value i kdyz neni jiste zda je has_content = True
 
 cdef struct Node	# Forward
 
@@ -814,3 +816,18 @@ cdef class Trie:
 					self.add(seq[i], value[i])
 				except KeyError:
 					self.add(seq[i], seq[i])
+					
+	def setdefault(Trie self, char *key, char *default = ""):
+		cdef Node *node = self._find_node(key)
+		cdef char *result
+		
+		if node:
+			result = node.value
+		elif default != "":
+			self.add(key, default)
+			result = default
+		else:
+			self.add(key, key)
+			result = key
+			
+		return result
