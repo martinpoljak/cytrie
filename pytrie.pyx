@@ -48,7 +48,10 @@ cdef struct NodePosition:
 cdef struct Node:
 	Node **subnodes[CHUNKS_COUNT]
 	char *value
+	
+	int subnodes_count
 	int has_content
+	
 	CONTENT_MAP_TYPE content_map
 	TraversingHelper _traversing
 	NodePosition parent
@@ -90,9 +93,11 @@ cdef class Trie:
 		current_node._traversing.last_bit = 0
 		
 		# Clears the parent node record
+		cdef NodePosition *pn_info = &(node.parent)
 		
 		if node.parent.node:
-			(<Node *> node.parent.node).subnodes[node.parent.chunk][node.parent.bit] = NULL
+			(<Node *> pn_info.node).subnodes[pn_info.chunk][pn_info.bit] = NULL
+			(<Node *> pn_info.node).subnodes_count -= 1
 			
 		# Do
 		
@@ -133,14 +138,14 @@ cdef class Trie:
 			# Deallocating the node content
 			if deallocated_node.has_content:
 				self._len -= 1
-				#print deallocated_node.value
+				print deallocated_node.value
 				free(deallocated_node.value)
 			
 			free(deallocated_node)
 			
 			
 			
-		#print "return"
+		print "return"
 		
 		"""
 		cdef Node *processed_node
@@ -173,6 +178,7 @@ cdef class Trie:
 		new_node.content_map = 0
 		new_node.has_content = False
 		new_node.parent.node = NULL
+		new_node.subnodes_count = 0
 		
 		return new_node
 			
@@ -297,6 +303,7 @@ cdef class Trie:
 		
 		node.content_map = node.content_map | mask
 		node.subnodes[chunk][bit] = subnode
+		node.subnodes_count += 1
 		
 		subnode.parent.node = node
 		subnode.parent.chunk = chunk
@@ -321,6 +328,7 @@ cdef class Trie:
 				working_node = <Node *> malloc(sizeof(Node))
 				working_node.content_map = 0
 				working_node.has_content = False
+				working_node.subnodes_count = 0
 				
 				self._write_subnode(current_node, working_node, character)
 			
@@ -373,20 +381,28 @@ cdef class Trie:
 		if node:
 			node.has_content = False
 			self._len -= 1
-	"""
+	
 	def remove_clean(Trie self, char *key):
-		cdef Node *current_node = self._root
-		cdef int length = strlen(key) - 2
-		cdef int i
+		cdef Node *node = self._find_node(key)
+		cdef Node *parent_node
 		
-		for i in range(0, length):
-			current_node = self._get_subnode(current_node, key[i])
+		if node:
+			if node.subnodes_count > 0:
+				node.has_content = False
 			
-			if current_node == NULL:		
-				break
-		
-		if current_node
-	"""
+			else:
+				parent_node = <Node *> node.parent.node
+				
+				while parent_node:
+					if (parent_node.subnodes_count > 1) or parent_node.has_content:
+						self._dealloc_node(node)
+						break
+					else:
+						node = parent_node
+						parent_node = <Node *> node.parent.node
+						
+			self._len -= 1
+						
 			
 	def cut(Trie self, char *mask):
 		cdef Node *node = self._find_node(mask)

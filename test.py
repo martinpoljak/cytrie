@@ -12,11 +12,17 @@ for i in range (0, 10000000):
 
 trie = pytrie.Trie()
 
-for i in range (0, 1000000):
-	addition = str(i)
-	trie.add(addition, addition)
+#for i in range (0, 1000000):
+#	addition = str(i)
+#	trie.add(addition, addition)
+
+trie.add("1", "1")
+trie.add("12", "12")
+trie.add("123", "123")
+trie.add("1234", "1234")
+trie.add("12345", "12345")
 	
-trie.cut("12")
+trie.remove_clean("12345")
 
 #trie.add("abc", "def")
 #trie.add("ghi", "jkl")
