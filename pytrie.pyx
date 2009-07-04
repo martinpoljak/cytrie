@@ -20,6 +20,7 @@ cdef extern from "string.h":
 # dictionary()
 # len() -- OK
 # clear()
+# clean()
 # fromkeys(seq[, value)
 # copy()
 # get(key[, default]) -- OK, only as get(key)
@@ -39,7 +40,7 @@ cdef struct Node	# Forward
 cdef struct TraversingHelper:
 	int last_chunk
 	int last_bit
-	CONTENT_MAP_TYPE bitmap
+	CONTENT_MAP_TYPE content_map
 	
 cdef struct NodePosition:
 	Node *node
@@ -89,7 +90,7 @@ cdef class Trie:
 		self._dealloc_node(self._root)
 	
 	cdef inline void _dealloc_node(Trie self, Node* node):
-
+		
 		"""
 		Go around the tree non-recursive alghorithm.
 		"""
@@ -226,12 +227,12 @@ cdef class Trie:
 		
 		current_node._traversing.last_chunk = 0
 		current_node._traversing.last_bit = 0
-		current_node._traversing.bitmap = current_node.content_map
+		current_node._traversing.content_map = current_node.content_map
 		
 		while current_node != node.parent.node:
 
 			# Traversing
-			while current_node._traversing.bitmap:
+			while current_node._traversing.content_map:
 				
 				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
 					
@@ -246,7 +247,7 @@ cdef class Trie:
 								
 								processed_node._traversing.last_chunk = 0
 								processed_node._traversing.last_bit = 0	
-								processed_node._traversing.bitmap = processed_node.content_map
+								processed_node._traversing.content_map = processed_node.content_map
 								
 								current_node = processed_node
 								
@@ -257,7 +258,7 @@ cdef class Trie:
 							break_it = False
 							break
 					
-						current_node._traversing.bitmap = current_node._traversing.bitmap ^ mask
+						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
 			
 			# Deallocating the node content
 			if current_node.has_content:
