@@ -24,8 +24,8 @@ trie = pytrie.Trie()
 for i in range (0, 1000000):
 	addition = str(i)
 	trie.add(addition, addition)
-	
-trie.clean()
+
+trie.items()
 
 
 #trie.add("1", "1")

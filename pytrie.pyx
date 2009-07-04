@@ -20,13 +20,13 @@ cdef extern from "string.h":
 # reversed()
 # dictionary()
 # len() -- OK
-# clear()
-# clean()
+# clear() -- OK
+# clean() -- OK
 # fromkeys(seq[, value)
 # copy()
 # get(key[, default]) -- OK, only as get(key)
 # has_key(key) -- OK
-# items()
+# items() -- OK
 # keys()
 # setdefault(key[, default])
 # update([other])
@@ -75,7 +75,6 @@ cdef class Trie:
 			self.add_dictionary(dictionary)
 
 	"""
-	
 	# Probably not compatible with Cython at this time (because of 'isclass')
 	
 	def __init__(Trie self, iterable = []):
@@ -257,7 +256,7 @@ cdef class Trie:
 			# Deallocating the node content
 			if current_node.has_content:
 				self._len -= 1
-				print current_node.value
+				#print current_node.value
 				current_node.has_content = False
 			
 			current_node = current_node.parent.node
@@ -429,8 +428,7 @@ cdef class Trie:
 		Go around the tree non-recursive alghorithm.
 		"""
 
-		cdef Node *node = self._root
-		cdef Node *current_node = node
+		cdef Node *current_node = self._root
 		cdef Node *processed_node
 		cdef Node *parent_node
 		
@@ -445,7 +443,7 @@ cdef class Trie:
 		
 		# Do
 		
-		while current_node != node.parent.node:
+		while current_node != self._root.parent.node:
 
 			# Traversing
 			while current_node._traversing.content_map:
@@ -480,7 +478,7 @@ cdef class Trie:
 			# Deallocating the node content
 			parent_node = current_node.parent.node
 			
-			if (not current_node.has_content) and parent_node and (parent_node.subnodes_count <= 0):
+			if (not current_node.has_content) and ((parent_node and (parent_node.subnodes_count <= 0)) or (parent_node == NULL)):
 				
 				while True:
 					
@@ -500,3 +498,68 @@ cdef class Trie:
 				self._len -= 1
 			
 			current_node = parent_node
+			
+	def clear(Trie self):
+		self._dealloc_node(self._root)
+		self._root = self._create_node()
+		
+	def items(Trie self):
+		
+		"""
+		Go around the tree non-recursive alghorithm.
+		"""
+
+		cdef Node *current_node = self._root
+		cdef Node *processed_node
+		
+		cdef BOOL break_it = False 
+		cdef int i, j
+		
+		cdef CONTENT_MAP_TYPE mask
+		cdef list result = []
+		
+		current_node._traversing.last_chunk = 0
+		current_node._traversing.last_bit = 0
+		current_node._traversing.content_map = current_node.content_map
+		
+		# Do
+		
+		while current_node != self._root.parent.node:
+
+			# Traversing
+			while current_node._traversing.content_map:
+				
+				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
+					
+					mask = 1 << i
+					if current_node._traversing.content_map & mask:
+						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
+							processed_node = current_node.subnodes[i][j]
+
+							if processed_node:
+								current_node._traversing.last_chunk = i
+								current_node._traversing.last_bit = j + 1
+								
+								processed_node._traversing.last_chunk = 0
+								processed_node._traversing.last_bit = 0	
+								processed_node._traversing.content_map = processed_node.content_map
+								
+								current_node = processed_node
+								
+								break_it = True
+								break
+							
+						if break_it:
+							break_it = False
+							break
+					
+						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
+			
+			# Checking the node content out
+			if current_node.has_content:
+				result.append(current_node.value)
+			
+			current_node = current_node.parent.node
+
+		return result
+
