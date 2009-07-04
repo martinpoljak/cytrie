@@ -1,5 +1,6 @@
 
 include "platform.pxi"
+include "common.pxi"
 
 #####
 
@@ -52,7 +53,7 @@ cdef struct Node:
 	char *value
 	
 	int subnodes_count
-	int has_content
+	BOOL has_content
 	
 	CONTENT_MAP_TYPE content_map
 	TraversingHelper _traversing
@@ -99,7 +100,7 @@ cdef class Trie:
 		cdef Node *processed_node
 		cdef Node *deallocated_node
 		
-		cdef int break_it = False 
+		cdef BOOL break_it = False 
 		cdef int i, j
 		
 		cdef CONTENT_MAP_TYPE mask
@@ -150,43 +151,28 @@ cdef class Trie:
 			deallocated_node = current_node
 			current_node = current_node.parent.node
 			
-			# Deallocating the node content
-			if deallocated_node.has_content:
-				self._len -= 1
-				#print deallocated_node.value
-				free(deallocated_node.value)
-			
-			free(deallocated_node)
-			
-			
-			
+			self._dealloc_leaf_node(deallocated_node)
+						
 		#print "return"
+
+	cdef inline BOOL _dealloc_leaf_node(Trie self, Node *node):
+		cdef BOOL result
 		
-		"""
-		cdef Node *processed_node
-		cdef int i, j
-		
-		# Traverses through the tree
-		if node.content_map:
-			for i in range(0, CHUNKS_COUNT):
-				if node.content_map & (1 << i):
-					for j in range(0, CHUNK_SIZE):
-						processed_node = node.subnodes[i][j]
-						
-						if processed_node:
-							self._dealloc_node(processed_node)
-						
-					free(node.subnodes[i])
-					
-		if node.has_content:
-			free(node.value)
-			self._len -= 1
-						
-		# Deallocates the node
-		free(node)
-		"""
-		
-		
+		if node.content_map == 0:
+			if node.has_content:
+				self._len -= 1
+				#print node.value
+				free(node.value)
+			
+			free(node)
+			result = True
+			
+		else:
+			result = False
+			
+		return result
+			
+	
 	cdef inline Node* _create_node(Trie self):
 		
 		cdef Node *new_node = <Node *> malloc(sizeof(Node))
@@ -220,7 +206,7 @@ cdef class Trie:
 		cdef Node *current_node = node
 		cdef Node *processed_node
 		
-		cdef int break_it = False 
+		cdef BOOL break_it = False 
 		cdef int i, j
 		
 		cdef CONTENT_MAP_TYPE mask
@@ -267,25 +253,8 @@ cdef class Trie:
 				current_node.has_content = False
 			
 			current_node = current_node.parent.node
-		
-		"""
-		cdef Node *processed_node
-		cdef int i, j
-		
-		# Traverses through the tree
-		if node.content_map:
-			for i in range(0, CHUNKS_COUNT):
-				if node.content_map & (1 << i):
-					for j in range(0, CHUNK_SIZE):
-						processed_node = node.subnodes[i][j]
-						
-						if processed_node:
-							self._cut_node(processed_node)
-							
-					node.has_content = False
-					self._len -= 1
-		"""
-		
+
+			
 	cdef inline Node* _get_subnode(Trie self, Node *node, char position):
 		
 		cdef int chunk
@@ -302,6 +271,7 @@ cdef class Trie:
 			result = NULL
 				
 		return result
+		
 		
 	cdef inline void _write_subnode(Trie self, Node *node, Node *subnode, char position):
 		
