@@ -35,9 +35,10 @@ cdef extern from "string.h":
 # d[key]
 
 
-cdef struct DeallocatingHelper:
+cdef struct TraversingHelper:
 	int last_chunk
 	int last_bit
+	CONTENT_MAP_TYPE bitmap
 	
 cdef struct NodePosition:
 	void *node
@@ -49,7 +50,7 @@ cdef struct Node:
 	char *value
 	int has_content
 	CONTENT_MAP_TYPE content_map
-	DeallocatingHelper _dealloc
+	TraversingHelper _traversing
 	NodePosition parent
 
 
@@ -85,8 +86,8 @@ cdef class Trie:
 		
 		cdef CONTENT_MAP_TYPE mask
 		
-		current_node._dealloc.last_chunk = 0
-		current_node._dealloc.last_bit = 0
+		current_node._traversing.last_chunk = 0
+		current_node._traversing.last_bit = 0
 		
 		# Clears the parent node record
 		
@@ -100,19 +101,19 @@ cdef class Trie:
 			# Traversing
 			while current_node.content_map:
 				
-				for i in range(current_node._dealloc.last_chunk, CHUNKS_COUNT):
+				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
 					
 					mask = 1 << i
 					if node.content_map & mask:
-						for j in range(current_node._dealloc.last_bit, CHUNK_SIZE):
+						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
 							processed_node = current_node.subnodes[i][j]
 
 							if processed_node:
-								current_node._dealloc.last_chunk = i
-								current_node._dealloc.last_bit = j + 1
+								current_node._traversing.last_chunk = i
+								current_node._traversing.last_bit = j + 1
 								
-								processed_node._dealloc.last_chunk = 0
-								processed_node._dealloc.last_bit = 0								
+								processed_node._traversing.last_chunk = 0
+								processed_node._traversing.last_bit = 0								
 								
 								current_node = processed_node
 								
@@ -203,27 +204,29 @@ cdef class Trie:
 		
 		cdef CONTENT_MAP_TYPE mask
 		
-		current_node._dealloc.last_chunk = 0
-		current_node._dealloc.last_bit = 0
+		current_node._traversing.last_chunk = 0
+		current_node._traversing.last_bit = 0
+		current_node._traversing.bitmap = current_node.content_map
 		
 		while current_node != <Node *> node.parent.node:
 
 			# Traversing
-			while current_node.content_map:
+			while current_node._traversing.bitmap:
 				
-				for i in range(current_node._dealloc.last_chunk, CHUNKS_COUNT):
+				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
 					
 					mask = 1 << i
 					if node.content_map & mask:
-						for j in range(current_node._dealloc.last_bit, CHUNK_SIZE):
+						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
 							processed_node = current_node.subnodes[i][j]
 
 							if processed_node:
-								current_node._dealloc.last_chunk = i
-								current_node._dealloc.last_bit = j + 1
+								current_node._traversing.last_chunk = i
+								current_node._traversing.last_bit = j + 1
 								
-								processed_node._dealloc.last_chunk = 0
-								processed_node._dealloc.last_bit = 0								
+								processed_node._traversing.last_chunk = 0
+								processed_node._traversing.last_bit = 0	
+								processed_node._traversing.bitmap = processed_node.content_map
 								
 								current_node = processed_node
 								
@@ -233,6 +236,8 @@ cdef class Trie:
 						if break_it:
 							break_it = False
 							break
+					
+						current_node._traversing.bitmap = current_node._traversing.bitmap ^ mask
 			
 			# Deallocating the node content
 			if current_node.has_content:
