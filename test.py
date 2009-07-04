@@ -17,9 +17,6 @@ trie = pytrie.Trie()
 #	trie.add(addition, addition)
 
 trie.add("1", "1")
-trie.add("12", "12")
-trie.add("123", "123")
-trie.add("1234", "1234")
 trie.add("12345", "12345")
 	
 trie.remove_clean("12345")

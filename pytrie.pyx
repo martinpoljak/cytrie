@@ -393,8 +393,9 @@ cdef class Trie:
 			else:
 				parent_node = <Node *> node.parent.node
 				
-				while parent_node:
-					if (parent_node.subnodes_count > 1) or parent_node.has_content:
+				while True:
+					
+					if (parent_node == NULL) or(parent_node.subnodes_count > 1) or parent_node.has_content:
 						self._dealloc_node(node)
 						break
 					else:
