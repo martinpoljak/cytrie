@@ -113,8 +113,13 @@ cdef class Trie:
 		cdef NodePosition *pn_info = &(node.parent)
 		
 		if pn_info.node:
-			pn_info.node.subnodes[pn_info.chunk][pn_info.bit] = NULL
 			pn_info.node.subnodes_count -= 1
+			
+			if pn_info.node.subnodes_count <= 0:
+				free(pn_info.node.subnodes[pn_info.chunk])
+				pn_info.node.content_map = 0
+			else:
+				pn_info.node.subnodes[pn_info.chunk][pn_info.bit] = NULL
 			
 		# Do
 		
@@ -126,7 +131,7 @@ cdef class Trie:
 				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
 					
 					mask = 1 << i
-					if node.content_map & mask:
+					if current_node.content_map & mask:
 						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
 							processed_node = current_node.subnodes[i][j]
 
@@ -216,14 +221,6 @@ cdef class Trie:
 		current_node._traversing.last_bit = 0
 		current_node._traversing.content_map = current_node.content_map
 		
-		# Clears the parent node record
-		
-		cdef NodePosition *pn_info = &(node.parent)
-		
-		if pn_info.node:
-			pn_info.node.subnodes[pn_info.chunk][pn_info.bit] = NULL
-			pn_info.node.subnodes_count -= 1
-		
 		# Do
 		
 		while current_node != node.parent.node:
@@ -234,7 +231,7 @@ cdef class Trie:
 				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
 					
 					mask = 1 << i
-					if node.content_map & mask:
+					if current_node._traversing.content_map & mask:
 						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
 							processed_node = current_node.subnodes[i][j]
 
@@ -399,8 +396,9 @@ cdef class Trie:
 				while True:
 					
 					if (parent_node == NULL) or (parent_node.subnodes_count > 1) or parent_node.has_content:
-						self._dealloc_node(node)
+						self._dealloc_leaf_node(node)
 						break
+						
 					else:   
 						free(parent_node.subnodes[node.parent.chunk])
 						parent_node.content_map = 0
@@ -425,3 +423,81 @@ cdef class Trie:
 		if node:
 			self._dealloc_node(node)
 	
+	def clean(Trie self):
+		
+		"""
+		Go around the tree non-recursive alghorithm.
+		"""
+
+		cdef Node *node = self._root
+		cdef Node *current_node = node
+		cdef Node *processed_node
+		cdef Node *parent_node
+		
+		cdef BOOL break_it = False 
+		cdef int i, j
+		
+		cdef CONTENT_MAP_TYPE mask
+		
+		current_node._traversing.last_chunk = 0
+		current_node._traversing.last_bit = 0
+		current_node._traversing.content_map = current_node.content_map
+		
+		# Do
+		
+		while current_node != node.parent.node:
+
+			# Traversing
+			while current_node._traversing.content_map:
+				
+				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
+					
+					mask = 1 << i
+					if current_node._traversing.content_map & mask:
+						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
+							processed_node = current_node.subnodes[i][j]
+
+							if processed_node:
+								current_node._traversing.last_chunk = i
+								current_node._traversing.last_bit = j + 1
+								
+								processed_node._traversing.last_chunk = 0
+								processed_node._traversing.last_bit = 0	
+								processed_node._traversing.content_map = processed_node.content_map
+								
+								current_node = processed_node
+								
+								break_it = True
+								print "down"
+								break
+							
+						if break_it:
+							break_it = False
+							break
+					
+						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
+			
+						
+			# Deallocating the node content
+			parent_node = current_node.parent.node
+			
+			if (not current_node.has_content) and parent_node and (parent_node.subnodes_count <= 0):
+				
+				while True:
+					
+					if (parent_node == NULL) or (parent_node.subnodes_count > 1) or parent_node.has_content:
+						self._dealloc_leaf_node(current_node)
+						break
+						
+					else:   
+						free(parent_node.subnodes[current_node.parent.chunk])
+						parent_node.content_map = 0
+						
+						self._dealloc_leaf_node(current_node)
+						
+						current_node = parent_node
+						parent_node = current_node.parent.node
+						
+				self._len -= 1
+			
+			current_node = parent_node
