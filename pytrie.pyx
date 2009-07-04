@@ -34,17 +34,24 @@ cdef extern from "string.h":
 # key not in d
 # d[key]
 
+
 cdef struct DeallocatingHelper:
 	int last_chunk
 	int last_bit
+	
+cdef struct NodePosition:
+	void *node
+	int chunk
+	int bit
 
 cdef struct Node:
 	Node **subnodes[CHUNKS_COUNT]
-	Node *parent_node
 	char *value
 	int has_content
 	CONTENT_MAP_TYPE content_map
 	DeallocatingHelper _dealloc
+	NodePosition parent
+
 
 
 	
@@ -64,7 +71,7 @@ cdef class Trie:
 		self._dealloc_node(self._root)
 	
 	cdef inline void _dealloc_node(Trie self, Node* node):
-		
+
 		"""
 		Go around the tree non-recursive alghorithm.
 		"""
@@ -81,7 +88,14 @@ cdef class Trie:
 		current_node._dealloc.last_chunk = 0
 		current_node._dealloc.last_bit = 0
 		
-		while current_node:
+		# Clears the parent node record
+		
+		if node.parent.node:
+			(<Node *> node.parent.node).subnodes[node.parent.chunk][node.parent.bit] = NULL
+			
+		# Do
+		
+		while current_node != <Node *> node.parent.node:
 
 			# Traversing
 			while current_node.content_map:
@@ -113,16 +127,20 @@ cdef class Trie:
 						free(current_node.subnodes[i])
 															
 			deallocated_node = current_node
-			current_node = current_node.parent_node
+			current_node = <Node *> current_node.parent.node
 			
 			# Deallocating the node content
 			if deallocated_node.has_content:
 				self._len -= 1
+				#print deallocated_node.value
 				free(deallocated_node.value)
 			
 			free(deallocated_node)
 			
 			
+			
+		#print "return"
+		
 		"""
 		cdef Node *processed_node
 		cdef int i, j
@@ -153,7 +171,7 @@ cdef class Trie:
 		cdef Node *new_node = <Node *> malloc(sizeof(Node))
 		new_node.content_map = 0
 		new_node.has_content = False
-		new_node.parent_node = NULL
+		new_node.parent.node = NULL
 		
 		return new_node
 			
@@ -172,6 +190,59 @@ cdef class Trie:
 		return current_node
 		
 	cdef inline void _cut_node(Trie self, Node *node):
+		
+		"""
+		Go around the tree non-recursive alghorithm.
+		"""
+
+		cdef Node *current_node = node
+		cdef Node *processed_node
+		
+		cdef int break_it = False 
+		cdef int i, j
+		
+		cdef CONTENT_MAP_TYPE mask
+		
+		current_node._dealloc.last_chunk = 0
+		current_node._dealloc.last_bit = 0
+		
+		while current_node != <Node *> node.parent.node:
+
+			# Traversing
+			while current_node.content_map:
+				
+				for i in range(current_node._dealloc.last_chunk, CHUNKS_COUNT):
+					
+					mask = 1 << i
+					if node.content_map & mask:
+						for j in range(current_node._dealloc.last_bit, CHUNK_SIZE):
+							processed_node = current_node.subnodes[i][j]
+
+							if processed_node:
+								current_node._dealloc.last_chunk = i
+								current_node._dealloc.last_bit = j + 1
+								
+								processed_node._dealloc.last_chunk = 0
+								processed_node._dealloc.last_bit = 0								
+								
+								current_node = processed_node
+								
+								break_it = True
+								break
+							
+						if break_it:
+							break_it = False
+							break
+			
+			# Deallocating the node content
+			if current_node.has_content:
+				self._len -= 1
+				print current_node.value
+				current_node.has_content = False
+			
+			current_node = <Node *> current_node.parent.node
+		
+		"""
 		cdef Node *processed_node
 		cdef int i, j
 		
@@ -187,6 +258,7 @@ cdef class Trie:
 							
 					node.has_content = False
 					self._len -= 1
+		"""
 		
 	cdef inline Node* _get_subnode(Trie self, Node *node, char position):
 		
@@ -210,6 +282,8 @@ cdef class Trie:
 		cdef int _chunk_size = sizeof(Node *) * CHUNK_SIZE
 		
 		cdef int chunk = ((position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT)
+		cdef int bit = position & BIT_POSITION_MASK
+		
 		cdef CONTENT_MAP_TYPE mask = 1 << chunk
 		
 		if not (node.content_map & mask):
@@ -217,9 +291,11 @@ cdef class Trie:
 			memset(node.subnodes[chunk], 0, _chunk_size)
 		
 		node.content_map = node.content_map | mask
-		node.subnodes[chunk][position & BIT_POSITION_MASK] = subnode
+		node.subnodes[chunk][bit] = subnode
 		
-		subnode.parent_node = node
+		subnode.parent.node = node
+		subnode.parent.chunk = chunk
+		subnode.parent.bit = bit
 	
 	
 	cdef inline void _add(Trie self, char *key, char *value):
