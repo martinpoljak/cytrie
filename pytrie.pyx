@@ -19,23 +19,25 @@ cdef extern from "string.h":
 # purge(key) -- OK, as remove_clean(key)
 # remove(key) -- OK
 # reversed()
-# dictionary()
+# dictionary() -- OK
 # len() -- OK
 # clear() -- OK
 # clean() -- OK
-# fromkeys(seq[, value])
+# fromkeys(seq[, value]) -- OK
 # copy()
 # get(key[, default]) -- OK, only as get(key)
 # has_key(key) -- OK
 # items() -- OK
 # keys() -- OK
 # setdefault(key[, default])
-# update([other])
+# update([other]) -- OK
 # values() -- OK
 # del d[key]
 # key in d
 # key not in d
 # d[key]
+
+# + fetching only some subtree by keys(), list(), dictionary(), reversed(), values() and copy() method
 
 cdef struct Node	# Forward
 
@@ -795,4 +797,20 @@ cdef class Trie:
 		free(key_buffer)
 		return result
 		
-
+	def update(Trie self, tuple other):
+		self.add(other[0], other[1])
+		
+	def fromkeys(Trie self, seq, value = []):
+		cdef int length = len(seq)
+		cdef int i
+		
+		if len(value) == 0:
+			for i in range(0, length):
+				self.add(seq[i], seq[i])
+		else:
+			for i in range(0, length):
+				
+				try:
+					self.add(seq[i], value[i])
+				except KeyError:
+					self.add(seq[i], seq[i])
