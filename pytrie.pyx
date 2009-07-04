@@ -468,7 +468,6 @@ cdef class Trie:
 								current_node = processed_node
 								
 								break_it = True
-								print "down"
 								break
 							
 						if break_it:
