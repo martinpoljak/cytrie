@@ -25,9 +25,11 @@ for i in range (0, 1000000):
 	addition = str(i)
 	trie.add(addition, addition)
 
-items = trie.dictionary()
-print items
+#items = trie.dictionary()
+#print items
 #print len(keys)
+
+trie.copy()
 
 
 #trie.add("1", "1")

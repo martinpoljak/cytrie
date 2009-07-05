@@ -13,12 +13,13 @@ cdef extern from "string.h":
 	size_t strlen(char *str)
 	void* memset(void *buffer, int ch, size_t count)
 	void* strncpy(char *destination, char *source, size_t count)
+	void* memcpy(void *destination, void *source, size_t length)
 	 
 #####
 
 # purge(key) -- OK, as remove_clean(key)
 # remove(key) -- OK
-# reversed()
+# reversed() -- CANCEL
 # dictionary() -- OK
 # len() -- OK
 # clear() -- OK
@@ -40,6 +41,7 @@ cdef extern from "string.h":
 # + fetching only some subtree by keys(), list(), dictionary(), reversed(), values() and copy() method
 # + neodalokovavaji se pole jen oznacena has_content = False
 # + sahame do value i kdyz neni jiste zda je has_content = True
+# + spatne tridime, prazdne misto az na konec, ma byt na zacatku
 
 cdef struct Node	# Forward
 
@@ -49,19 +51,18 @@ cdef struct TraversingHelper:
 	CONTENT_MAP_TYPE content_map
 	
 cdef struct NodePosition:
-	Node *node
 	int chunk
 	int bit
+	Node *node
 
 cdef struct Node:
 	Node **subnodes[CHUNKS_COUNT]
 	char *value
+	TraversingHelper _traversing
 	
 	int subnodes_count
 	BOOL has_content
-	
 	CONTENT_MAP_TYPE content_map
-	TraversingHelper _traversing
 	NodePosition parent
 
 
@@ -732,7 +733,7 @@ cdef class Trie:
 		"""
 
 		cdef Node *current_node = self._root
-		cdef Node *processed_node
+		cdef  Node *processed_node
 		
 		cdef BOOL break_it = False 
 		cdef int i, j
@@ -799,8 +800,10 @@ cdef class Trie:
 		free(key_buffer)
 		return result
 		
+		
 	def update(Trie self, tuple other):
 		self.add(other[0], other[1])
+		
 		
 	def fromkeys(Trie self, seq, value = []):
 		cdef int length = len(seq)
@@ -817,6 +820,7 @@ cdef class Trie:
 				except KeyError:
 					self.add(seq[i], seq[i])
 					
+					
 	def setdefault(Trie self, char *key, char *default = ""):
 		cdef Node *node = self._find_node(key)
 		cdef char *result
@@ -830,4 +834,100 @@ cdef class Trie:
 			self.add(key, key)
 			result = key
 			
+		return result
+		
+	def copy(Trie self):
+		
+		"""
+		Go around the tree non-recursive alghorithm.
+		"""
+
+		cdef Node *current_node = self._root
+		cdef Node *processed_node
+		
+		cdef Node *target_current_node
+		cdef Node *target_processed_node
+		
+		cdef BOOL break_it = False 
+		cdef int i, j
+		
+		
+		cdef CONTENT_MAP_TYPE mask
+		
+		cdef Trie result = Trie()
+		result._len = self._len
+		target_current_node = result._root
+		
+		cdef int node_copy_size = sizeof(current_node.subnodes_count) + sizeof(current_node.has_content) + sizeof(current_node.content_map) + sizeof(current_node.parent) - sizeof(current_node.parent.node)
+		cdef int value_copy_size
+		
+		current_node._traversing.last_chunk = 0
+		current_node._traversing.last_bit = 0
+		current_node._traversing.content_map = current_node.content_map
+		
+		# Do
+		
+		while current_node != self._root.parent.node:
+			
+			memcpy(&(target_current_node.subnodes_count), &(current_node.subnodes_count), node_copy_size)
+			
+			if current_node.has_content:
+				value_copy_size = (strlen(current_node.value)+ 1) * sizeof(char)
+				target_current_node.value = <char *> malloc(value_copy_size)
+				memcpy(target_current_node.value, current_node.value, value_copy_size)
+				
+			target_current_node._traversing.last_chunk = 0
+			
+			
+			# Traversing
+			while current_node._traversing.content_map:
+				
+				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
+					
+					mask = 1 << i
+					if current_node._traversing.content_map & mask:
+						
+						if i > target_current_node._traversing.last_chunk:
+							target_current_node.subnodes[i] = <Node **> malloc(sizeof(Node *) * CHUNK_SIZE)
+							target_current_node._traversing.last_chunk = i
+						
+						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
+							processed_node = current_node.subnodes[i][j]
+
+							if processed_node:
+								current_node._traversing.last_chunk = i
+								current_node._traversing.last_bit = j + 1
+								
+								processed_node._traversing.last_chunk = 0
+								processed_node._traversing.last_bit = 0	
+								processed_node._traversing.content_map = processed_node.content_map
+								
+								current_node = processed_node
+								
+								###
+								
+								target_processed_node = <Node *> malloc(sizeof(Node))
+								target_processed_node.parent.node = target_current_node
+								target_current_node.subnodes[i][j] = target_processed_node
+								
+								target_current_node = target_processed_node
+								
+								###
+								
+								break_it = True
+								break
+							
+						if break_it:
+							break_it = False
+							break
+					
+						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
+			
+			# Checking the node content out
+		#	if current_node.has_content:
+		#		result.append(current_node.value)
+			
+			current_node = current_node.parent.node
+			target_current_node = target_current_node.parent.node
+
 		return result
