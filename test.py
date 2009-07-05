@@ -29,7 +29,9 @@ for i in range (0, 1000000):
 #print items
 #print len(keys)
 
-trie.copy()
+#new_trie = trie.copy()
+#items = new_trie.items()
+#print items
 
 
 #trie.add("1", "1")

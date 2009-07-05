@@ -686,7 +686,7 @@ cdef class Trie:
 					if current_node._traversing.content_map & mask:
 						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
 							processed_node = current_node.subnodes[i][j]
-
+							
 							if processed_node:
 								current_node._traversing.last_chunk = i
 								current_node._traversing.last_bit = j + 1
@@ -704,7 +704,7 @@ cdef class Trie:
 								key_buffer[level] = i * CHUNK_SIZE + j
 								level += 1
 									
-								break_it = True								
+								break_it = True
 								break
 							
 						if break_it:
@@ -841,7 +841,7 @@ cdef class Trie:
 		"""
 		Go around the tree non-recursive alghorithm.
 		"""
-
+		
 		cdef Node *current_node = self._root
 		cdef Node *processed_node
 		
@@ -853,13 +853,14 @@ cdef class Trie:
 		
 		
 		cdef CONTENT_MAP_TYPE mask
+		cdef int node_copy_size = sizeof(current_node.subnodes_count) + sizeof(current_node.has_content) + sizeof(current_node.content_map) + sizeof(current_node.parent) - sizeof(current_node.parent.node)
+		cdef int value_copy_size
 		
 		cdef Trie result = Trie()
 		result._len = self._len
-		target_current_node = result._root
 		
-		cdef int node_copy_size = sizeof(current_node.subnodes_count) + sizeof(current_node.has_content) + sizeof(current_node.content_map) + sizeof(current_node.parent) - sizeof(current_node.parent.node)
-		cdef int value_copy_size
+		target_current_node = result._root
+		memcpy(&(target_current_node.subnodes_count), &(current_node.subnodes_count), node_copy_size)
 		
 		current_node._traversing.last_chunk = 0
 		current_node._traversing.last_bit = 0
@@ -868,17 +869,7 @@ cdef class Trie:
 		# Do
 		
 		while current_node != self._root.parent.node:
-			
-			memcpy(&(target_current_node.subnodes_count), &(current_node.subnodes_count), node_copy_size)
-			
-			if current_node.has_content:
-				value_copy_size = (strlen(current_node.value)+ 1) * sizeof(char)
-				target_current_node.value = <char *> malloc(value_copy_size)
-				memcpy(target_current_node.value, current_node.value, value_copy_size)
-				
-			target_current_node._traversing.last_chunk = 0
-			
-			
+
 			# Traversing
 			while current_node._traversing.content_map:
 				
@@ -886,11 +877,12 @@ cdef class Trie:
 					
 					mask = 1 << i
 					if current_node._traversing.content_map & mask:
-						
+
 						if i > target_current_node._traversing.last_chunk:
 							target_current_node.subnodes[i] = <Node **> malloc(sizeof(Node *) * CHUNK_SIZE)
+							memset(target_current_node.subnodes[i], 0, sizeof(Node *) * CHUNK_SIZE)
 							target_current_node._traversing.last_chunk = i
-						
+							
 						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
 							processed_node = current_node.subnodes[i][j]
 
@@ -910,6 +902,15 @@ cdef class Trie:
 								target_processed_node.parent.node = target_current_node
 								target_current_node.subnodes[i][j] = target_processed_node
 								
+								target_processed_node._traversing.last_chunk = 0
+								
+								memcpy(&(target_processed_node.subnodes_count), &(processed_node.subnodes_count), node_copy_size)
+								
+								if processed_node.has_content:
+									value_copy_size = (strlen(processed_node.value)+ 1) * sizeof(char)
+									target_processed_node.value = <char *> malloc(value_copy_size)
+									memcpy(target_processed_node.value, processed_node.value, value_copy_size)
+								
 								target_current_node = target_processed_node
 								
 								###
@@ -920,14 +921,15 @@ cdef class Trie:
 						if break_it:
 							break_it = False
 							break
-					
+							
 						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
+						
 			
 			# Checking the node content out
-		#	if current_node.has_content:
-		#		result.append(current_node.value)
+			#if target_current_node.has_content:
+			#	print target_current_node.value
 			
 			current_node = current_node.parent.node
 			target_current_node = target_current_node.parent.node
-
+		
 		return result
