@@ -34,7 +34,7 @@ for i in range (0, 1000000):
 	trie[addition] = addition
 #for i in range (0, 10000000):
 items = trie.items()
-print trie
+print items[0:100]
 #print work
 
 #for i in range(0, 10000000):

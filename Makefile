@@ -10,8 +10,14 @@ test: pytrie.so
 pytrie.so: pytrie.c
 	gcc -shared -pthread -fPIC -fwrapv -O3 -fgcse-sm -fgcse-las -fgcse-after-reload -funsafe-loop-optimizations -fsched-spec-load -fsched-spec-load-dangerous -funsigned-char -fsee -fipa-pta -fbranch-target-load-optimize -Wall -fno-strict-aliasing -I${PYTHON_INCLUDE_PATH} -o pytrie.so pytrie.c
 	
-pytrie.c: pytrie.pyx platform.pxi settings.pxi
-	cython pytrie.pyx
+pytrie.c: build/pytrie.pyx platform.pxi settings.pxi
+	cp -r platforms build
+	cp -r *.pxi build
+	cython build/pytrie.pyx
+	cp build/pytrie.c .
+	
+build/pytrie.pyx: pytrie.pyx
+	gpp -o build/pytrie.pyx pytrie.pyx
 	
 clean:
 	rm pytrie.c pytrie.so

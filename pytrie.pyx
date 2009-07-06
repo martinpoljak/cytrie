@@ -38,6 +38,7 @@ cdef extern from "string.h":
 # key not in d -- OK
 # d[key] -- OK
 # + -- OK
+# insert(trie) -- OK
 
 # + fetching only some subtree by keys(), list(), dictionary(), reversed(), values() and copy() method
 # + neodalokovavaji se pole jen oznacena has_content = False
@@ -64,7 +65,7 @@ cdef struct Node:
 	CONTENT_MAP_TYPE content_map
 	NodePosition parent
 
-
+#define HAS_CONTENT(node) node.has_content
 
 	
 cdef class Trie:
@@ -707,7 +708,7 @@ cdef class Trie:
 								level += 1
 								
 								# Checking the node content out
-								if processed_node.has_content:
+								if HAS_CONTENT(processed_node):
 									key_buffer[level] = 0
 									item = (key_buffer, processed_node.value)
 									result.append(item)
@@ -786,7 +787,7 @@ cdef class Trie:
 								level += 1
 								
 								# Checking the node content out
-								if processed_node.has_content:
+								if HAS_CONTENT(processed_node):
 									key_buffer[level] = 0
 									result[key_buffer] = processed_node.value
 								
@@ -835,7 +836,7 @@ cdef class Trie:
 		cdef Node *node = self._find_node(key)
 		cdef char *result
 		
-		if node and node.has_content:
+		if node and HAS_CONTENT(node):
 			result = node.value
 		elif default != "":
 			self.add(key, default)
@@ -916,7 +917,7 @@ cdef class Trie:
 								
 								memcpy(&(target_processed_node.subnodes_count), &(processed_node.subnodes_count), node_copy_size)
 								
-								if processed_node.has_content:
+								if HAS_CONTENT(processed_node):
 									value_copy_size = (strlen(processed_node.value)+ 1) * sizeof(char)
 									target_processed_node.value = <char *> malloc(value_copy_size)
 									memcpy(target_processed_node.value, processed_node.value, value_copy_size)
@@ -993,7 +994,7 @@ cdef class Trie:
 								level += 1
 								
 								# Checking the node content out
-								if processed_node.has_content:
+								if HAS_CONTENT(processed_node):
 									key_buffer[level] = 0
 									self.add(key_buffer, processed_node.value)
 								
@@ -1107,7 +1108,7 @@ cdef class Trie:
 								###
 								
 								# Checking the node content out
-								if processed_node.has_content:
+								if HAS_CONTENT(processed_node):
 									
 									# Terminates key buffer
 									key_buffer[level] = 0
