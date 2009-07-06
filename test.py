@@ -32,10 +32,9 @@ for i in range (0, 1000000):
 	addition = str(i)
 #	#trie.add(addition, addition)
 	trie[addition] = addition
-#for i in range (0, 10000000):
-#items = trie.items()
-#print items[0:100]
-#print work
+
+items = trie.dictionary()
+print str(trie)[0:100]
 
 #for i in range(0, 10000000):
 #	trie1 += trie2
@@ -63,10 +62,6 @@ for i in range (0, 1000000):
 
 #for i in range(0, 1000000):
 #	trie.remove(str(i))
-#work = {"abc": "cde", "fgh": "ijk"}
-#print work
-
-#print work.__hash__()
 	
 for i in range(0, 1000000):
 #	foo = trie.get(str(i))

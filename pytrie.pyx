@@ -113,7 +113,7 @@ cdef class Trie:
 	def __dealloc__(Trie self):
 		self._dealloc_node(self._root)
 		
-	#define GAT_VARS(root, _direct1) \
+	#define _GAT_VARS_WRAPPER(root, _direct1) \
 		\
 		""" \
 		Go around the tree non-recursive alghorithm. \
@@ -121,7 +121,6 @@ cdef class Trie:
 		\
 		cdef Node *current_node = root \
 		cdef Node *processed_node \
-		cdef Node *deallocated_node \
 		\
 		cdef BOOL break_it = False \
 		cdef int i, j \
@@ -133,7 +132,17 @@ cdef class Trie:
 		_direct1
 		
 	#define GAT_VARS_DIRECT(root) \
-		GAT_VARS(root,current_node._traversing.content_map = current_node.content_map)
+		_GAT_VARS_WRAPPER(root)
+		
+	#define GAT_VARS(root) \
+		_GAT_VARS_WRAPPER(root,current_node._traversing.content_map = current_node.content_map)
+		
+	#define GAT_VARS_KEYS(root) \
+		cdef int level = 0 \
+		cdef int max_level = 4 \
+		cdef char *key_buffer = <char *> malloc(5 * sizeof(char)) \
+		\
+		GAT_VARS(root)
 		
 	#define _GAT_MAIN_WRAPPER(root, _direct1, _direct2) \
 		\
@@ -148,7 +157,7 @@ cdef class Trie:
 				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT): \
 					\
 					mask = 1 << i \
-					if current_node.content_map & mask: \
+					if current_node._direct1 & mask: \
 						for j in range(current_node._traversing.last_bit, CHUNK_SIZE): \
 							processed_node = current_node.subnodes[i][j] \
 							\
@@ -166,6 +175,16 @@ cdef class Trie:
 	#define GAT_MAIN(root) \
 		_GAT_MAIN_WRAPPER(root,_traversing.content_map,processed_node._traversing.content_map = processed_node.content_map)
 		
+	#define GAT_MAIN_KEYS(root) \
+								GAT_MAIN(ROOT()) \
+								\
+								if level > max_level: \
+									max_level = level \
+									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char)) \
+									\
+								key_buffer[level] = i * CHUNK_SIZE + j \
+								level += 1
+		
 	#define _GAT_FINISH_WRAPPER(special,_direct1) \
 								current_node = processed_node \
 								\
@@ -177,7 +196,8 @@ cdef class Trie:
 							break \
 						\
 						special \
-						current_node._direct1 ^= mask						
+						current_node._direct1 ^= mask	
+
 						
 	#define GAT_FINISH_DIRECT(special) \
 		_GAT_FINISH_WRAPPER(special,content_map)
@@ -187,7 +207,36 @@ cdef class Trie:
 	
 	#define GAT_UPWARD() current_node = current_node.parent.node
 	
+	#define GAT_UPWARD_KEYS() \
+			GAT_UPWARD() \
+			level -= 1	
+	
+	#define GAT_BEGIN(root) \
+		GAT_VARS(root) \
+		GAT_MAIN(root) \
+		################################################
+		
+	#define GAT_END() \
+		################################################ \
+		GAT_FINISH() \
+			GAT_UPWARD()
+			
+	#define GAT_BEGIN_KEYS(root) \
+		GAT_VARS_KEYS(root) \
+		GAT_MAIN_KEYS(root) \
+		################################################
+		
+	#define GAT_END_KEYS() \
+		################################################ \
+		GAT_FINISH() \
+		GAT_UPWARD_KEYS() \
+		\
+		free(key_buffer)
+			
+	
 	cdef inline void _dealloc_node(Trie self, Node* node):
+		
+		cdef Node *deallocated_node
 		
 		GAT_VARS_DIRECT(node)
 		
@@ -278,66 +327,18 @@ _			output = NULL
 		
 	cdef inline void _cut_node(Trie self, Node *node):
 		
-		"""
-		Go around the tree non-recursive alghorithm.
-		"""
-
-		cdef Node *current_node = node
-		cdef Node *processed_node
+		GAT_BEGIN(node)
 		
-		cdef BOOL break_it = False 
-		cdef int i, j
-		
-		cdef CONTENT_MAP_TYPE mask
-		
-		current_node._traversing.last_chunk = 0
-		current_node._traversing.last_bit = 0
-		current_node._traversing.content_map = current_node.content_map
-		
-		# Do
-		
-		while current_node != node.parent.node:
-
-			# Traversing
-			while current_node._traversing.content_map:
-				
-				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
-					
-					mask = 1 << i
-					if current_node._traversing.content_map & mask:
-						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
-							processed_node = current_node.subnodes[i][j]
-
-							if processed_node:
-								current_node._traversing.last_chunk = i
-								current_node._traversing.last_bit = j + 1
-								
-								processed_node._traversing.last_chunk = 0
-								processed_node._traversing.last_bit = 0	
-								processed_node._traversing.content_map = processed_node.content_map
-								
-								###
+		################################################
 								
 								# Deallocating the node content
 								if HAS_CONTENT(processed_node):
 									LENGTH_DOWN()
 									HAS_CONTENT_OFF(processed_node)
-								
-								###
-								
-								current_node = processed_node
-								
-								break_it = True
-								break
-							
-						if break_it:
-							break_it = False
-							break
-					
-						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
+									
+		################################################
 			
-			
-			current_node = current_node.parent.node
+		GAT_END()
 		
 	#define WRITE_SUBNODE_VARS() \
 		cdef int _write_subnode__chunk \
@@ -495,58 +496,11 @@ _		_subnode.parent.bit = _write_subnode__bit
 			self._dealloc_node(node)
 	
 	def clean(Trie self):
-		
-		"""
-		Go around the tree non-recursive alghorithm.
-		"""
-
-		cdef Node *current_node = ROOT()
-		cdef Node *processed_node
 		cdef Node *parent_node
 		
-		cdef BOOL break_it = False 
-		cdef int i, j
-		
-		cdef CONTENT_MAP_TYPE mask
-		
-		current_node._traversing.last_chunk = 0
-		current_node._traversing.last_bit = 0
-		current_node._traversing.content_map = current_node.content_map
-		
-		# Do
-		
-		while current_node != self._root.parent.node:
-
-			# Traversing
-			while current_node._traversing.content_map:
-				
-				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
-					
-					mask = 1 << i
-					if current_node._traversing.content_map & mask:
-						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
-							processed_node = current_node.subnodes[i][j]
-
-							if processed_node:
-								current_node._traversing.last_chunk = i
-								current_node._traversing.last_bit = j + 1
-								
-								processed_node._traversing.last_chunk = 0
-								processed_node._traversing.last_bit = 0	
-								processed_node._traversing.content_map = processed_node.content_map
-								
-								current_node = processed_node
-								
-								break_it = True
-								break
-							
-						if break_it:
-							break_it = False
-							break
-					
-						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
+		GAT_BEGIN(ROOT())
+		GAT_FINISH()
 			
-						
 			# Deallocating the node content
 			parent_node = current_node.parent.node
 			
@@ -576,197 +530,47 @@ _		_subnode.parent.bit = _write_subnode__bit
 		self._root = self._create_node()
 		
 	def values(Trie self):
-		
-		"""
-		Go around the tree non-recursive alghorithm.
-		"""
-
-		cdef Node *current_node = ROOT()
-		cdef Node *processed_node
-		
-		cdef BOOL break_it = False 
-		cdef int i, j
-		
-		cdef CONTENT_MAP_TYPE mask
 		cdef list result = []
 		
-		current_node._traversing.last_chunk = 0
-		current_node._traversing.last_bit = 0
-		current_node._traversing.content_map = current_node.content_map
+		GAT_BEGIN(ROOT())
 		
-		# Do
-		
-		while current_node != self._root.parent.node:
-
-			# Traversing
-			while current_node._traversing.content_map:
-				
-				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
-					
-					mask = 1 << i
-					if current_node._traversing.content_map & mask:
-						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
-							processed_node = current_node.subnodes[i][j]
-
-							if processed_node:
-								current_node._traversing.last_chunk = i
-								current_node._traversing.last_bit = j + 1
-								
-								processed_node._traversing.last_chunk = 0
-								processed_node._traversing.last_bit = 0	
-								processed_node._traversing.content_map = processed_node.content_map
+		################################################
 								
 								# Checking the node content out
 								if HAS_CONTENT(processed_node):
 									result.append(processed_node.value)
 									
-								###
-								
-								current_node = processed_node
-								
-								break_it = True
-								break
-							
-						if break_it:
-							break_it = False
-							break
-					
-						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-			
-			current_node = current_node.parent.node
-
+		################################################
+		
+		GAT_END()
 		return result
 
 		
 	def keys(Trie self):
-		
-		"""
-		Go around the tree non-recursive alghorithm.
-		"""
-
-		cdef Node *current_node = ROOT()
-		cdef Node *processed_node
-		
-		cdef BOOL break_it = False 
-		cdef int i, j
-		
-		cdef CONTENT_MAP_TYPE mask
 		cdef list result = []
 		
-		cdef int level = 0
-		cdef int max_level = 4
-		cdef char *key_buffer = <char *> malloc(5 * sizeof(char))
+		GAT_BEGIN_KEYS(ROOT())
 		
-		current_node._traversing.last_chunk = 0
-		current_node._traversing.last_bit = 0
-		current_node._traversing.content_map = current_node.content_map
-		
-		# Do
-		
-		while current_node != self._root.parent.node:
-
-			# Traversing
-			while current_node._traversing.content_map:
-				
-				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
-					
-					mask = 1 << i
-					if current_node._traversing.content_map & mask:
-						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
-							processed_node = current_node.subnodes[i][j]
-
-							if processed_node:
-								current_node._traversing.last_chunk = i
-								current_node._traversing.last_bit = j + 1
-								
-								processed_node._traversing.last_chunk = 0
-								processed_node._traversing.last_bit = 0	
-								processed_node._traversing.content_map = processed_node.content_map
-								
-								if level > max_level:
-									max_level = level
-									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char))
-									
-								key_buffer[level] = i * CHUNK_SIZE + j
-								level += 1
+		################################################
 								
 								# Checking the node content out
 								if HAS_CONTENT(processed_node):
 									key_buffer[level] = 0
 									result.append(key_buffer)
-									
-								###
 								
-								current_node = processed_node
-									
-								break_it = True								
-								break
-							
-						if break_it:
-							break_it = False
-							break
-					
-						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-			
-			current_node = current_node.parent.node
-			level -= 1
+		################################################
 		
-		free(key_buffer)
+		GAT_END_KEYS()
 		return result
 		
 		
 	def items(Trie self):
-		
-		"""
-		Go around the tree non-recursive alghorithm.
-		"""
-
-		cdef Node *current_node = ROOT()
-		cdef Node *processed_node
-		
-		cdef BOOL break_it = False 
-		cdef int i, j
-		
-		cdef CONTENT_MAP_TYPE mask
 		cdef list result = []
-		cdef tuple item
+		cdef tuple item	
 		
-		cdef int level = 0
-		cdef int max_level = 4
-		cdef char *key_buffer = <char *> malloc(5 * sizeof(char))
+		GAT_BEGIN_KEYS(ROOT())
 		
-		current_node._traversing.last_chunk = 0
-		current_node._traversing.last_bit = 0
-		current_node._traversing.content_map = current_node.content_map
-		
-		# Do
-		
-		while current_node != self._root.parent.node:
-
-			# Traversing
-			while current_node._traversing.content_map:
-				
-				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
-					
-					mask = 1 << i
-					if current_node._traversing.content_map & mask:
-						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
-							processed_node = current_node.subnodes[i][j]
-							
-							if processed_node:
-								current_node._traversing.last_chunk = i
-								current_node._traversing.last_bit = j + 1
-								
-								processed_node._traversing.last_chunk = 0
-								processed_node._traversing.last_bit = 0	
-								processed_node._traversing.content_map = processed_node.content_map
-								
-								if level > max_level:
-									max_level = level
-									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char))
-									
-								key_buffer[level] = i * CHUNK_SIZE + j
-								level += 1
+		################################################
 								
 								# Checking the node content out
 								if HAS_CONTENT(processed_node):
@@ -774,102 +578,27 @@ _		_subnode.parent.bit = _write_subnode__bit
 									item = (key_buffer, processed_node.value)
 									result.append(item)
 								
-								###
-								
-								current_node = processed_node
-									
-								break_it = True
-								break
-							
-						if break_it:
-							break_it = False
-							break
-							
-						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-						
-			
-			current_node = current_node.parent.node
-			level -= 1
+		################################################
 		
-		free(key_buffer)
+		GAT_END_KEYS()
 		return result
 		
 		
 	def dictionary(Trie self):
-		
-		"""
-		Go around the tree non-recursive alghorithm.
-		"""
-
-		cdef Node *current_node = ROOT()
-		cdef  Node *processed_node
-		
-		cdef BOOL break_it = False 
-		cdef int i, j
-		
-		cdef CONTENT_MAP_TYPE mask
 		cdef dict result = {}
 		
-		cdef int level = 0
-		cdef int max_level = 4
-		cdef char *key_buffer = <char *> malloc(5 * sizeof(char))
+		GAT_BEGIN_KEYS(ROOT())
 		
-		current_node._traversing.last_chunk = 0
-		current_node._traversing.last_bit = 0
-		current_node._traversing.content_map = current_node.content_map
-		
-		# Do
-		
-		while current_node != self._root.parent.node:
-
-			# Traversing
-			while current_node._traversing.content_map:
-				
-				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
-					
-					mask = 1 << i
-					if current_node._traversing.content_map & mask:
-						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
-							processed_node = current_node.subnodes[i][j]
-
-							if processed_node:
-								current_node._traversing.last_chunk = i
-								current_node._traversing.last_bit = j + 1
-								
-								processed_node._traversing.last_chunk = 0
-								processed_node._traversing.last_bit = 0	
-								processed_node._traversing.content_map = processed_node.content_map
-								
-								if level > max_level:
-									max_level = level
-									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char))
-									
-								key_buffer[level] = i * CHUNK_SIZE + j
-								level += 1
+		################################################
 								
 								# Checking the node content out
 								if HAS_CONTENT(processed_node):
 									key_buffer[level] = 0
 									result[key_buffer] = processed_node.value
-								
-								###
-								
-								current_node = processed_node
-								
-								break_it = True								
-								break
-							
-						if break_it:
-							break_it = False
-							break
-					
-						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-						
-			
-			current_node = current_node.parent.node
-			level -= 1
+									
+		################################################
 		
-		free(key_buffer)
+		GAT_END_KEYS()
 		return result
 		
 		
@@ -1004,79 +733,18 @@ _		_subnode.parent.bit = _write_subnode__bit
 		
 	cpdef insert(Trie self, Trie trie):
 		
-		"""
-		Go around the tree non-recursive alghorithm.
-		"""
-
-		cdef Node *current_node = trie._root
-		cdef Node *processed_node
+		GAT_BEGIN_KEYS(trie._root)
 		
-		cdef BOOL break_it = False 
-		cdef int i, j
-		
-		cdef CONTENT_MAP_TYPE mask
-		
-		cdef int level = 0
-		cdef int max_level = 4
-		cdef char *key_buffer = <char *> malloc(5 * sizeof(char))
-		
-		current_node._traversing.last_chunk = 0
-		current_node._traversing.last_bit = 0
-		current_node._traversing.content_map = current_node.content_map
-		
-		# Do
-		
-		while current_node != trie._root.parent.node:
-
-			# Traversing
-			while current_node._traversing.content_map:
-				
-				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
-					
-					mask = 1 << i
-					if current_node._traversing.content_map & mask:
-						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
-							processed_node = current_node.subnodes[i][j]
-							
-							if processed_node:
-								current_node._traversing.last_chunk = i
-								current_node._traversing.last_bit = j + 1
-								
-								processed_node._traversing.last_chunk = 0
-								processed_node._traversing.last_bit = 0	
-								processed_node._traversing.content_map = processed_node.content_map
-								
-								
-								if level > max_level:
-									max_level = level
-									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char))
-									
-								key_buffer[level] = i * CHUNK_SIZE + j
-								level += 1
+		################################################
 								
 								# Checking the node content out
 								if HAS_CONTENT(processed_node):
 									key_buffer[level] = 0
 									self.add(key_buffer, processed_node.value)
-								
-								###
-								
-								current_node = processed_node
-								
-								break_it = True
-								break
-							
-						if break_it:
-							break_it = False
-							break
 					
-						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-						
-			
-			current_node = current_node.parent.node
-			level -= 1
+		################################################
 		
-		free(key_buffer)
+		GAT_END_KEYS()
 		
 	def __add__(Trie x, Trie y):
 		x.insert(y)
@@ -1103,22 +771,6 @@ _		_subnode.parent.bit = _write_subnode__bit
 		
 	def __str__(Trie self):
 		
-		"""
-		Go around the tree non-recursive alghorithm.
-		"""
-
-		cdef Node *current_node = ROOT()
-		cdef Node *processed_node
-		
-		cdef BOOL break_it = False 
-		cdef int i, j
-		
-		cdef CONTENT_MAP_TYPE mask
-		
-		cdef int level = 0
-		cdef int max_level = 4
-		cdef char *key_buffer = <char *> malloc(5 * sizeof(char))
-		
 		cdef int buffer_chunk_size = LENGTH() * sizeof(char) * 16
 		cdef int buffer_size = buffer_chunk_size + (3 * sizeof(char))
 		cdef char *result_buffer = <char *> malloc(buffer_size)
@@ -1132,41 +784,11 @@ _		_subnode.parent.bit = _write_subnode__bit
 		cdef int length
 		
 		cdef char *new_buffer
-		
-		current_node._traversing.last_chunk = 0
-		current_node._traversing.last_bit = 0
-		current_node._traversing.content_map = current_node.content_map
-		
-		# Do
-		
-		while current_node != self._root.parent.node:
 
-			# Traversing
-			while current_node._traversing.content_map:
-				
-				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
-					
-					mask = 1 << i
-					if current_node._traversing.content_map & mask:
-						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
-							processed_node = current_node.subnodes[i][j]
-							
-							if processed_node:
-								current_node._traversing.last_chunk = i
-								current_node._traversing.last_bit = j + 1
-								
-								processed_node._traversing.last_chunk = 0
-								processed_node._traversing.last_bit = 0	
-								processed_node._traversing.content_map = processed_node.content_map
-								
-								if level > max_level:
-									max_level = level
-									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char))
-									
-								key_buffer[level] = i * CHUNK_SIZE + j
-								level += 1
-								
-								###
+		
+		GAT_BEGIN_KEYS(ROOT())
+		
+		################################################
 								
 								# Checking the node content out
 								if HAS_CONTENT(processed_node):
@@ -1211,24 +833,10 @@ _		_subnode.parent.bit = _write_subnode__bit
 									result_buffer_head[2] = " "
 									result_buffer_head += sizeof(char) * 3
 									
-								###
-								
-								current_node = processed_node
-								
-								break_it = True
-								break
-							
-						if break_it:
-							break_it = False
-							break
-					
-						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-						
-
-			current_node = current_node.parent.node
-			level -= 1
+		################################################
 		
-		free(key_buffer)
+		GAT_END_KEYS()
+		
 		
 		result_buffer_head -= 2 * sizeof(char)
 		result_buffer_head[0] = "}"
