@@ -33,7 +33,8 @@ for i in range (0, 1000000):
 #	#trie.add(addition, addition)
 	trie[addition] = addition
 #for i in range (0, 10000000):
-work = str(trie)
+items = trie.items()
+print trie
 #print work
 
 #for i in range(0, 10000000):

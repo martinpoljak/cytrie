@@ -41,7 +41,6 @@ cdef extern from "string.h":
 
 # + fetching only some subtree by keys(), list(), dictionary(), reversed(), values() and copy() method
 # + neodalokovavaji se pole jen oznacena has_content = False
-# + spatne tridime, prazdne misto az na konec, ma byt na zacatku
 
 cdef struct Node	# Forward
 
@@ -246,6 +245,15 @@ cdef class Trie:
 								processed_node._traversing.last_bit = 0	
 								processed_node._traversing.content_map = processed_node.content_map
 								
+								###
+								
+								# Deallocating the node content
+								if processed_node.has_content:
+									self._len -= 1
+									processed_node.has_content = False
+								
+								###
+								
 								current_node = processed_node
 								
 								break_it = True
@@ -257,10 +265,6 @@ cdef class Trie:
 					
 						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
 			
-			# Deallocating the node content
-			if current_node.has_content:
-				self._len -= 1
-				current_node.has_content = False
 			
 			current_node = current_node.parent.node
 
@@ -550,6 +554,12 @@ cdef class Trie:
 								processed_node._traversing.last_bit = 0	
 								processed_node._traversing.content_map = processed_node.content_map
 								
+								# Checking the node content out
+								if processed_node.has_content:
+									result.append(processed_node.value)
+									
+								###
+								
 								current_node = processed_node
 								
 								break_it = True
@@ -560,10 +570,6 @@ cdef class Trie:
 							break
 					
 						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-			
-			# Checking the node content out
-			if current_node.has_content:
-				result.append(current_node.value)
 			
 			current_node = current_node.parent.node
 
@@ -615,14 +621,21 @@ cdef class Trie:
 								processed_node._traversing.last_bit = 0	
 								processed_node._traversing.content_map = processed_node.content_map
 								
-								current_node = processed_node
-								
 								if level > max_level:
 									max_level = level
 									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char))
 									
 								key_buffer[level] = i * CHUNK_SIZE + j
 								level += 1
+								
+								# Checking the node content out
+								if processed_node.has_content:
+									key_buffer[level] = 0
+									result.append(key_buffer)
+									
+								###
+								
+								current_node = processed_node
 									
 								break_it = True								
 								break
@@ -632,12 +645,6 @@ cdef class Trie:
 							break
 					
 						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-			
-			# Checking the node content out
-			if current_node.has_content:
-				key_buffer[level] = 0
-				#print key_buffer
-				result.append(key_buffer)
 			
 			current_node = current_node.parent.node
 			level -= 1
@@ -692,14 +699,22 @@ cdef class Trie:
 								processed_node._traversing.last_bit = 0	
 								processed_node._traversing.content_map = processed_node.content_map
 								
-								current_node = processed_node
-								
 								if level > max_level:
 									max_level = level
 									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char))
 									
 								key_buffer[level] = i * CHUNK_SIZE + j
 								level += 1
+								
+								# Checking the node content out
+								if processed_node.has_content:
+									key_buffer[level] = 0
+									item = (key_buffer, processed_node.value)
+									result.append(item)
+								
+								###
+								
+								current_node = processed_node
 									
 								break_it = True
 								break
@@ -707,14 +722,9 @@ cdef class Trie:
 						if break_it:
 							break_it = False
 							break
-					
+							
 						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-			
-			# Checking the node content out
-			if current_node.has_content:
-				key_buffer[level] = 0
-				item = (key_buffer, current_node.value)
-				result.append(item)
+						
 			
 			current_node = current_node.parent.node
 			level -= 1
@@ -768,15 +778,22 @@ cdef class Trie:
 								processed_node._traversing.last_bit = 0	
 								processed_node._traversing.content_map = processed_node.content_map
 								
-								current_node = processed_node
-								
 								if level > max_level:
 									max_level = level
 									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char))
 									
 								key_buffer[level] = i * CHUNK_SIZE + j
 								level += 1
-									
+								
+								# Checking the node content out
+								if processed_node.has_content:
+									key_buffer[level] = 0
+									result[key_buffer] = processed_node.value
+								
+								###
+								
+								current_node = processed_node
+								
 								break_it = True								
 								break
 							
@@ -785,11 +802,7 @@ cdef class Trie:
 							break
 					
 						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-			
-			# Checking the node content out
-			if current_node.has_content:
-				key_buffer[level] = 0
-				result[key_buffer] = current_node.value
+						
 			
 			current_node = current_node.parent.node
 			level -= 1
@@ -922,10 +935,6 @@ cdef class Trie:
 						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
 						
 			
-			# Checking the node content out
-			#if target_current_node.has_content:
-			#	print target_current_node.value
-			
 			current_node = current_node.parent.node
 			target_current_node = target_current_node.parent.node
 		
@@ -975,7 +984,6 @@ cdef class Trie:
 								processed_node._traversing.last_bit = 0	
 								processed_node._traversing.content_map = processed_node.content_map
 								
-								current_node = processed_node
 								
 								if level > max_level:
 									max_level = level
@@ -983,7 +991,16 @@ cdef class Trie:
 									
 								key_buffer[level] = i * CHUNK_SIZE + j
 								level += 1
-									
+								
+								# Checking the node content out
+								if processed_node.has_content:
+									key_buffer[level] = 0
+									self.add(key_buffer, processed_node.value)
+								
+								###
+								
+								current_node = processed_node
+								
 								break_it = True
 								break
 							
@@ -992,11 +1009,7 @@ cdef class Trie:
 							break
 					
 						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-			
-			# Checking the node content out
-			if current_node.has_content:
-				key_buffer[level] = 0
-				self.add(key_buffer, current_node.value)
+						
 			
 			current_node = current_node.parent.node
 			level -= 1
@@ -1084,15 +1097,62 @@ cdef class Trie:
 								processed_node._traversing.last_bit = 0	
 								processed_node._traversing.content_map = processed_node.content_map
 								
-								current_node = processed_node
-								
 								if level > max_level:
 									max_level = level
 									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char))
 									
 								key_buffer[level] = i * CHUNK_SIZE + j
 								level += 1
+								
+								###
+								
+								# Checking the node content out
+								if processed_node.has_content:
 									
+									# Terminates key buffer
+									key_buffer[level] = 0
+									
+									# Checks the current buffer size and eventually realloc the memory
+									key_length = strlen(key_buffer)
+									value_length = strlen(processed_node.value)
+									
+									length = 8 * sizeof(char) + key_length * sizeof(char) + value_length * sizeof(char)
+									
+									if result_buffer_head + length >= result_buffer_tail:
+										buffer_size += buffer_chunk_size
+										new_buffer = <char *> realloc(result_buffer, buffer_size)
+										result_buffer_tail = new_buffer + buffer_size
+										
+										if new_buffer != result_buffer:
+											result_buffer_head = new_buffer + (result_buffer_head - result_buffer)
+											result_buffer = new_buffer
+									
+									# Joins to the result buffer
+									
+									result_buffer_head[0] = "'"
+									result_buffer_head += sizeof(char)
+									
+									strncpy(result_buffer_head, key_buffer, key_length)
+									result_buffer_head += key_length * sizeof(char)
+									
+									result_buffer_head[0] = "'"
+									result_buffer_head[1] = ":"
+									result_buffer_head[2] = " "
+									result_buffer_head[3] = "'"
+									result_buffer_head += sizeof(char) * 4
+									
+									strncpy(result_buffer_head, processed_node.value, value_length)
+									result_buffer_head += value_length * sizeof(char)
+									
+									result_buffer_head[0] = "'"
+									result_buffer_head[1] = ","
+									result_buffer_head[2] = " "
+									result_buffer_head += sizeof(char) * 3
+									
+								###
+								
+								current_node = processed_node
+								
 								break_it = True
 								break
 							
@@ -1101,49 +1161,7 @@ cdef class Trie:
 							break
 					
 						current_node._traversing.content_map = current_node._traversing.content_map ^ mask
-			
-			# Checking the node content out
-			if current_node.has_content:
-				
-				# Terminates key buffer
-				key_buffer[level] = 0
-				
-				# Checks the current buffer size and eventually realloc the memory
-				key_length = strlen(key_buffer)
-				value_length = strlen(current_node.value)
-				
-				length = 8 * sizeof(char) + key_length * sizeof(char) + value_length * sizeof(char)
-				
-				if result_buffer_head + length >= result_buffer_tail:
-					buffer_size += buffer_chunk_size
-					new_buffer = <char *> realloc(result_buffer, buffer_size)
-					result_buffer_tail = new_buffer + buffer_size
-					
-					if new_buffer != result_buffer:
-						result_buffer_head = new_buffer + (result_buffer_head - result_buffer)
-						result_buffer = new_buffer
-				
-				# Joins to the result buffer
-				
-				result_buffer_head[0] = "'"
-				result_buffer_head += sizeof(char)
-				
-				strncpy(result_buffer_head, key_buffer, key_length)
-				result_buffer_head += key_length * sizeof(char)
-				
-				result_buffer_head[0] = "'"
-				result_buffer_head[1] = ":"
-				result_buffer_head[2] = " "
-				result_buffer_head[3] = "'"
-				result_buffer_head += sizeof(char) * 4
-				
-				strncpy(result_buffer_head, current_node.value, value_length)
-				result_buffer_head += value_length * sizeof(char)
-				
-				result_buffer_head[0] = "'"
-				result_buffer_head[1] = ","
-				result_buffer_head[2] = " "
-				result_buffer_head += sizeof(char) * 3
+						
 
 			current_node = current_node.parent.node
 			level -= 1
