@@ -134,15 +134,16 @@ cdef class Trie:
 		# Clears the parent node record
 		
 		cdef NodePosition *pn_info = &(node.parent)
+		cdef Node *parent_node = pn_info.node
 		
 		if pn_info.node:
-			pn_info.node.subnodes_count -= 1
+			parent_node.subnodes_count -= 1
 			
-			if pn_info.node.subnodes_count <= 0:
-				free(pn_info.node.subnodes[pn_info.chunk])
-				pn_info.node.content_map = 0
+			if parent_node.subnodes_count <= 0:
+				free(parent_node.subnodes[pn_info.chunk])
+				parent_node.content_map = 0
 			else:
-				pn_info.node.subnodes[pn_info.chunk][pn_info.bit] = NULL
+				parent_node.subnodes[pn_info.chunk][pn_info.bit] = NULL
 			
 		# Do
 		
@@ -227,7 +228,6 @@ _				output = NULL \
 _		else: \
 _			output = NULL
 	
-
 	cdef inline Node* _find_node(Trie self, char *key):
 		
 		cdef Node *current_node = ROOT()		
