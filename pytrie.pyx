@@ -61,11 +61,21 @@ cdef struct Node:
 	TraversingHelper _traversing
 	
 	int subnodes_count
-	BOOL has_content
+	int flags
 	CONTENT_MAP_TYPE content_map
 	NodePosition parent
 
-#define HAS_CONTENT(node) node.has_content
+
+#define FLAG_HAS_CONTENT 1
+#define FLAG_VALUE_ALLOCATED 2
+
+#define FLAG_SET(bitmap,flag) (bitmap & flag)
+#define FLAG_OFF(bitmap,flag) bitmap ^= flag
+#define FLAG_ON(bitmap,flag) bitmap |= flag
+
+#defeval HAS_CONTENT(node) FLAG_SET(node.flags,FLAG_HAS_CONTENT)
+#defeval HAS_CONTENT_ON(node) FLAG_ON(node.flags,FLAG_HAS_CONTENT)
+#defeval HAS_CONTENT_OFF(node) FLAG_OFF(node.flags,FLAG_HAS_CONTENT)
 
 	
 cdef class Trie:
@@ -169,7 +179,7 @@ cdef class Trie:
 		cdef BOOL result
 		
 		if node.content_map == 0:
-			if node.has_content:
+			if HAS_CONTENT(node):
 				self._len -= 1
 				free(node.value)
 			
@@ -186,9 +196,10 @@ cdef class Trie:
 		
 		cdef Node *new_node = <Node *> malloc(sizeof(Node))
 		new_node.content_map = 0
-		new_node.has_content = False
 		new_node.parent.node = NULL
 		new_node.subnodes_count = 0
+		new_node.flags = 0
+		HAS_CONTENT_ON(new_node)
 		
 		return new_node
 			
@@ -249,9 +260,9 @@ cdef class Trie:
 								###
 								
 								# Deallocating the node content
-								if processed_node.has_content:
+								if HAS_CONTENT(processed_node):
 									self._len -= 1
-									processed_node.has_content = False
+									HAS_CONTENT_OFF(processed_node)
 								
 								###
 								
@@ -328,8 +339,8 @@ cdef class Trie:
 			if working_node == NULL:				
 				working_node = <Node *> malloc(sizeof(Node))
 				working_node.content_map = 0
-				working_node.has_content = False
 				working_node.subnodes_count = 0
+				working_node.flags = 0
 				
 				self._write_subnode(current_node, working_node, character)
 				new_node_written = True
@@ -337,7 +348,7 @@ cdef class Trie:
 			current_node = working_node
 		
 		current_node.value = value
-		current_node.has_content = True
+		HAS_CONTENT_ON(current_node)
 		
 		if new_node_written:
 			self._len += 1
@@ -373,7 +384,7 @@ cdef class Trie:
 		if node == NULL:
 			raise KeyError
 		
-		if node.has_content:
+		if HAS_CONTENT(node):
 			return node.value
 		else:
 			raise KeyError
@@ -389,7 +400,7 @@ cdef class Trie:
 		cdef Node *node = self._find_node(key)
 		
 		if node:
-			node.has_content = False
+			HAS_CONTENT_OFF(node)
 			self._len -= 1
 	
 	def remove_clean(Trie self, char *key):
@@ -398,14 +409,14 @@ cdef class Trie:
 		
 		if node:
 			if node.subnodes_count > 0:
-				node.has_content = False
+				HAS_CONTENT_OFF(node)
 			
 			else:
 				parent_node = node.parent.node
 				
 				while True:
 					
-					if (parent_node == NULL) or (parent_node.subnodes_count > 1) or parent_node.has_content:
+					if (parent_node == NULL) or (parent_node.subnodes_count > 1) or HAS_CONTENT(parent_node):
 						self._dealloc_leaf_node(node)
 						break
 						
@@ -489,11 +500,11 @@ cdef class Trie:
 			# Deallocating the node content
 			parent_node = current_node.parent.node
 			
-			if (not current_node.has_content) and ((parent_node and (parent_node.subnodes_count <= 0)) or (parent_node == NULL)):
+			if (not HAS_CONTENT(current_node)) and ((parent_node and (parent_node.subnodes_count <= 0)) or (parent_node == NULL)):
 				
 				while True:
 					
-					if (parent_node == NULL) or (parent_node.subnodes_count > 1) or parent_node.has_content:
+					if (parent_node == NULL) or (parent_node.subnodes_count > 1) or HAS_CONTENT(parent_node):
 						self._dealloc_leaf_node(current_node)
 						break
 						
@@ -556,7 +567,7 @@ cdef class Trie:
 								processed_node._traversing.content_map = processed_node.content_map
 								
 								# Checking the node content out
-								if processed_node.has_content:
+								if HAS_CONTENT(processed_node):
 									result.append(processed_node.value)
 									
 								###
@@ -630,7 +641,7 @@ cdef class Trie:
 								level += 1
 								
 								# Checking the node content out
-								if processed_node.has_content:
+								if HAS_CONTENT(processed_node):
 									key_buffer[level] = 0
 									result.append(key_buffer)
 									
@@ -864,7 +875,7 @@ cdef class Trie:
 		
 		
 		cdef CONTENT_MAP_TYPE mask
-		cdef int node_copy_size = sizeof(current_node.subnodes_count) + sizeof(current_node.has_content) + sizeof(current_node.content_map) + sizeof(current_node.parent) - sizeof(current_node.parent.node)
+		cdef int node_copy_size = sizeof(current_node.subnodes_count) + sizeof(current_node.flags) + sizeof(current_node.content_map) + sizeof(current_node.parent) - sizeof(current_node.parent.node)
 		cdef int value_copy_size
 		
 		cdef Trie result = Trie()
