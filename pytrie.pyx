@@ -77,6 +77,13 @@ cdef struct Node:
 #defeval HAS_CONTENT_ON(node) FLAG_ON(node.flags,FLAG_HAS_CONTENT)
 #defeval HAS_CONTENT_OFF(node) FLAG_OFF(node.flags,FLAG_HAS_CONTENT)
 
+#define LENGTH() self._len
+
+#define LENGTH_UP() LENGTH += 1
+#define LENGTH_DOWN() LENGTH -= 1
+
+
+
 	
 cdef class Trie:
 	
@@ -180,7 +187,7 @@ cdef class Trie:
 		
 		if node.content_map == 0:
 			if HAS_CONTENT(node):
-				self._len -= 1
+				LENGTH_DOWN()
 				free(node.value)
 			
 			free(node)
@@ -201,15 +208,33 @@ cdef class Trie:
 		new_node.flags = 0
 		
 		return new_node
-			
+	
+	
+	#define GET_SUBNODE_VARS(node) \
+		cdef int _get_subnode__chunk
+		
+	#define GET_SUBNODE(output, node, position, _) \
+_		if node.content_map: \
+_			_get_subnode__chunk = (position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT \
+_			\
+_			if node.content_map & (1 << _get_subnode__chunk): \
+_				output = node.subnodes[_get_subnode__chunk][position & BIT_POSITION_MASK] \
+_			else: \
+_				output = NULL \
+_		else: \
+_			output = NULL
+	
+
 	cdef inline Node* _find_node(Trie self, char *key):
 		
-		cdef Node *current_node = self._root
+		cdef Node *current_node = self._root		
 		cdef int length = strlen(key)
 		cdef int i
 		
+		GET_SUBNODE_VARS()
+		
 		for i in range(0, length):
-			current_node = self._get_subnode(current_node, key[i])
+			GET_SUBNODE(current_node, current_node, key[i],	)
 			
 			if current_node == NULL:
 				break
@@ -260,7 +285,7 @@ cdef class Trie:
 								
 								# Deallocating the node content
 								if HAS_CONTENT(processed_node):
-									self._len -= 1
+									LENGTH_DOWN()
 									HAS_CONTENT_OFF(processed_node)
 								
 								###
@@ -278,24 +303,6 @@ cdef class Trie:
 			
 			
 			current_node = current_node.parent.node
-
-			
-	cdef inline Node* _get_subnode(Trie self, Node *node, char position):
-		
-		cdef int chunk
-		cdef Node *result
-		
-		if node.content_map:
-			chunk = (position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT		
-			
-			if node.content_map & (1 << chunk):
-				result = node.subnodes[chunk][position & BIT_POSITION_MASK]
-			else:
-				result = NULL
-		else:
-			result = NULL
-				
-		return result
 		
 		
 	cdef inline void _write_subnode(Trie self, Node *node, Node *subnode, char position):
@@ -328,12 +335,14 @@ cdef class Trie:
 		cdef BOOL new_node_written = False
 		
 		cdef Node *current_node = self._root
-		cdef int length = strlen(key)		
+		cdef int length = strlen(key)	
+		
+		GET_SUBNODE_VARS()
 		
 		for i in range(0, length):
 			
 			character = key[i]
-			working_node = self._get_subnode(current_node, character)
+			GET_SUBNODE(working_node, current_node, character,	)
 			
 			if working_node == NULL:				
 				working_node = <Node *> malloc(sizeof(Node))
@@ -350,7 +359,7 @@ cdef class Trie:
 		HAS_CONTENT_ON(current_node)
 		
 		if new_node_written:
-			self._len += 1
+			LENGTH_UP()
 		
 	cpdef add(Trie self, char *key, char *value):
 		
@@ -400,7 +409,7 @@ cdef class Trie:
 		
 		if node:
 			HAS_CONTENT_OFF(node)
-			self._len -= 1
+			LENGTH_DOWN()
 	
 	def remove_clean(Trie self, char *key):
 		cdef Node *node = self._find_node(key)
@@ -428,7 +437,7 @@ cdef class Trie:
 						node = parent_node
 						parent_node = node.parent.node
 						
-			self._len -= 1
+			LENGTH_DOWN()
 						
 			
 	def cut(Trie self, char *mask):
@@ -516,7 +525,7 @@ cdef class Trie:
 						current_node = parent_node
 						parent_node = current_node.parent.node
 						
-				self._len -= 1
+				LENGTH_DOWN()
 			
 			current_node = parent_node
 			
@@ -878,7 +887,7 @@ cdef class Trie:
 		cdef int value_copy_size
 		
 		cdef Trie result = Trie()
-		result._len = self._len
+		result._len = LENGTH()
 		
 		target_current_node = result._root
 		memcpy(&(target_current_node.subnodes_count), &(current_node.subnodes_count), node_copy_size)
@@ -1036,7 +1045,7 @@ cdef class Trie:
 		return self
 		
 	def __len__(Trie self):
-		return self._len
+		return LENGTH()
 		
 	def __getitem__(Trie self, char *x):
 		return self.get(x)
@@ -1068,7 +1077,7 @@ cdef class Trie:
 		cdef int max_level = 4
 		cdef char *key_buffer = <char *> malloc(5 * sizeof(char))
 		
-		cdef int buffer_chunk_size = self._len * sizeof(char) * 16
+		cdef int buffer_chunk_size = LENGTH() * sizeof(char) * 16
 		cdef int buffer_size = buffer_chunk_size + (3 * sizeof(char))
 		cdef char *result_buffer = <char *> malloc(buffer_size)
 		cdef char *result_buffer_head = result_buffer + sizeof(char)

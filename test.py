@@ -33,8 +33,8 @@ for i in range (0, 1000000):
 #	#trie.add(addition, addition)
 	trie[addition] = addition
 #for i in range (0, 10000000):
-items = trie.items()
-print items[0:100]
+#items = trie.items()
+#print items[0:100]
 #print work
 
 #for i in range(0, 10000000):
@@ -68,8 +68,8 @@ print items[0:100]
 
 #print work.__hash__()
 	
-#for i in range(0, 1000000):
+for i in range(0, 1000000):
 #	foo = trie.get(str(i))
-#	foo = trie[str(i)]
+	foo = trie[str(i)]
 #	print foo
 
