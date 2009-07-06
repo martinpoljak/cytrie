@@ -112,24 +112,84 @@ cdef class Trie:
 		
 	def __dealloc__(Trie self):
 		self._dealloc_node(self._root)
+		
+	#define GAT_VARS(root, _direct1) \
+		\
+		""" \
+		Go around the tree non-recursive alghorithm. \
+		""" \
+		\
+		cdef Node *current_node = root \
+		cdef Node *processed_node \
+		cdef Node *deallocated_node \
+		\
+		cdef BOOL break_it = False \
+		cdef int i, j \
+		\
+		cdef CONTENT_MAP_TYPE mask \
+		\
+		current_node._traversing.last_chunk = 0 \
+		current_node._traversing.last_bit = 0 \
+		_direct1
+		
+	#define GAT_VARS_DIRECT(root) \
+		GAT_VARS(root,current_node._traversing.content_map = current_node.content_map)
+		
+	#define _GAT_MAIN_WRAPPER(root, _direct1, _direct2) \
+		\
+		# Do \
+		\
+		while current_node != root.parent.node: \
+			\
+			# Traversing \
+			\
+			while current_node._direct1: \
+				\
+				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT): \
+					\
+					mask = 1 << i \
+					if current_node.content_map & mask: \
+						for j in range(current_node._traversing.last_bit, CHUNK_SIZE): \
+							processed_node = current_node.subnodes[i][j] \
+							\
+							if processed_node: \
+								current_node._traversing.last_chunk = i \
+								current_node._traversing.last_bit = j + 1 \
+								\
+								processed_node._traversing.last_chunk = 0 \
+								processed_node._traversing.last_bit = 0	\
+								_direct2
+	
+	#define GAT_MAIN_DIRECT(root) \
+		_GAT_MAIN_WRAPPER(root,content_map)
+		
+	#define GAT_MAIN(root) \
+		_GAT_MAIN_WRAPPER(root,_traversing.content_map,processed_node._traversing.content_map = processed_node.content_map)
+		
+	#define _GAT_FINISH_WRAPPER(special,_direct1) \
+								current_node = processed_node \
+								\
+								break_it = True \
+								break \
+								\
+						if break_it: \
+							break_it = False \
+							break \
+						\
+						special \
+						current_node._direct1 ^= mask						
+						
+	#define GAT_FINISH_DIRECT(special) \
+		_GAT_FINISH_WRAPPER(special,content_map)
+		
+	#define GAT_FINISH(special) \
+		_GAT_FINISH_WRAPPER(special,_traversing.content_map)
+	
+	#define GAT_UPWARD() current_node = current_node.parent.node
 	
 	cdef inline void _dealloc_node(Trie self, Node* node):
 		
-		"""
-		Go around the tree non-recursive alghorithm.
-		"""
-
-		cdef Node *current_node = node
-		cdef Node *processed_node
-		cdef Node *deallocated_node
-		
-		cdef BOOL break_it = False 
-		cdef int i, j
-		
-		cdef CONTENT_MAP_TYPE mask
-		
-		current_node._traversing.last_chunk = 0
-		current_node._traversing.last_bit = 0
+		GAT_VARS_DIRECT(node)
 		
 		# Clears the parent node record
 		
@@ -147,39 +207,11 @@ cdef class Trie:
 			
 		# Do
 		
-		while current_node != node.parent.node:
-
-			# Traversing
-			while current_node.content_map:
-				
-				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT):
-					
-					mask = 1 << i
-					if current_node.content_map & mask:
-						for j in range(current_node._traversing.last_bit, CHUNK_SIZE):
-							processed_node = current_node.subnodes[i][j]
-
-							if processed_node:
-								current_node._traversing.last_chunk = i
-								current_node._traversing.last_bit = j + 1
-								
-								processed_node._traversing.last_chunk = 0
-								processed_node._traversing.last_bit = 0								
-								
-								current_node = processed_node
-								
-								break_it = True
-								break
-							
-						if break_it:
-							break_it = False
-							break
-						
-						current_node.content_map = current_node.content_map ^ mask
-						free(current_node.subnodes[i])
+		GAT_MAIN_DIRECT(node)							
+		GAT_FINISH_DIRECT(free(current_node.subnodes[i]))
 															
 			deallocated_node = current_node
-			current_node = current_node.parent.node
+			GAT_UPWARD()
 			
 			self._dealloc_leaf_node(deallocated_node)
 			
