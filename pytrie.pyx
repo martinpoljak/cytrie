@@ -41,7 +41,6 @@ cdef extern from "string.h":
 
 # + fetching only some subtree by keys(), list(), dictionary(), reversed(), values() and copy() method
 # + neodalokovavaji se pole jen oznacena has_content = False
-# + sahame do value i kdyz neni jiste zda je has_content = True
 # + spatne tridime, prazdne misto az na konec, ma byt na zacatku
 
 cdef struct Node	# Forward
@@ -164,16 +163,14 @@ cdef class Trie:
 			current_node = current_node.parent.node
 			
 			self._dealloc_leaf_node(deallocated_node)
-						
-		#print "return"
-
+			
+			
 	cdef inline BOOL _dealloc_leaf_node(Trie self, Node *node):
 		cdef BOOL result
 		
 		if node.content_map == 0:
 			if node.has_content:
 				self._len -= 1
-				#print node.value
 				free(node.value)
 			
 			free(node)
@@ -263,7 +260,6 @@ cdef class Trie:
 			# Deallocating the node content
 			if current_node.has_content:
 				self._len -= 1
-				#print current_node.value
 				current_node.has_content = False
 			
 			current_node = current_node.parent.node
@@ -826,7 +822,7 @@ cdef class Trie:
 		cdef Node *node = self._find_node(key)
 		cdef char *result
 		
-		if node:
+		if node and node.has_content:
 			result = node.value
 		elif default != "":
 			self.add(key, default)
