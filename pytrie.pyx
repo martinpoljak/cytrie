@@ -307,26 +307,6 @@ _			output = NULL
 			
 			current_node = current_node.parent.node
 		
-		
-	cdef inline void _write_subnode(Trie self, Node *node, Node *subnode, char position):
-		
-		cdef int chunk = ((position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT)
-		cdef int bit = position & BIT_POSITION_MASK
-		
-		cdef CONTENT_MAP_TYPE mask = 1 << chunk
-		
-		if not (node.content_map & mask):
-			node.subnodes[chunk] = <Node**> malloc(sizeof(Node *) * CHUNK_SIZE)
-			memset(node.subnodes[chunk], 0, sizeof(Node *) * CHUNK_SIZE)
-		
-		node.content_map = node.content_map | mask
-		node.subnodes[chunk][bit] = subnode
-		node.subnodes_count += 1
-		
-		subnode.parent.node = node
-		subnode.parent.chunk = chunk
-		subnode.parent.bit = bit
-		
 	#define WRITE_SUBNODE_VARS() \
 		cdef int _write_subnode__chunk \
 		cdef int _write_subnode__bit \
@@ -350,7 +330,15 @@ _		\
 _		_subnode.parent.node = _node \
 _		_subnode.parent.chunk = _write_subnode__chunk \
 _		_subnode.parent.bit = _write_subnode__bit
-	
+
+	cdef inline void __write_subnode(Trie self, Node *node, Node *subnode, char position):
+		
+		"""
+		From an uknown reason, code with this inactive method is faster.
+		"""
+		
+		WRITE_SUBNODE_VARS()
+		WRITE_SUBNODE(node,subnode,position)	
 	
 	cdef inline void _add(Trie self, char *key, char *value):
 		
