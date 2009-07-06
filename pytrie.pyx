@@ -310,16 +310,14 @@ _			output = NULL
 		
 	cdef inline void _write_subnode(Trie self, Node *node, Node *subnode, char position):
 		
-		cdef int _chunk_size = sizeof(Node *) * CHUNK_SIZE
-		
 		cdef int chunk = ((position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT)
 		cdef int bit = position & BIT_POSITION_MASK
 		
 		cdef CONTENT_MAP_TYPE mask = 1 << chunk
 		
 		if not (node.content_map & mask):
-			node.subnodes[chunk] = <Node**> malloc(_chunk_size)
-			memset(node.subnodes[chunk], 0, _chunk_size)
+			node.subnodes[chunk] = <Node**> malloc(sizeof(Node *) * CHUNK_SIZE)
+			memset(node.subnodes[chunk], 0, sizeof(Node *) * CHUNK_SIZE)
 		
 		node.content_map = node.content_map | mask
 		node.subnodes[chunk][bit] = subnode
@@ -328,6 +326,30 @@ _			output = NULL
 		subnode.parent.node = node
 		subnode.parent.chunk = chunk
 		subnode.parent.bit = bit
+		
+	#define WRITE_SUBNODE_VARS() \
+		cdef int _write_subnode__chunk \
+		cdef int _write_subnode__bit \
+		\
+		cdef CONTENT_MAP_TYPE _write_subnode__mask 
+
+	#define WRITE_SUBNODE(_node, _subnode, _position, _) \
+_		_write_subnode__chunk = ((_position & CHUNK_IDENTIFICATION_MASK) >> CHUNK_IDENTIFICATION_ALIGNMENT) \
+_		_write_subnode__bit = _position & BIT_POSITION_MASK \
+_		\
+_		_write_subnode__mask = 1 << _write_subnode__chunk \
+_		\
+_		if not (_node.content_map & _write_subnode__mask): \
+_			_node.subnodes[_write_subnode__chunk] = <Node**> malloc(sizeof(Node *) * CHUNK_SIZE) \
+_			memset(_node.subnodes[_write_subnode__chunk], 0, sizeof(Node *) * CHUNK_SIZE) \
+_		\
+_		_node.content_map = _node.content_map | _write_subnode__mask \
+_		_node.subnodes[_write_subnode__chunk][_write_subnode__bit] = _subnode \
+_		_node.subnodes_count += 1 \
+_		\
+_		_subnode.parent.node = _node \
+_		_subnode.parent.chunk = _write_subnode__chunk \
+_		_subnode.parent.bit = _write_subnode__bit
 	
 	
 	cdef inline void _add(Trie self, char *key, char *value):
@@ -341,6 +363,7 @@ _			output = NULL
 		cdef int length = strlen(key)	
 		
 		GET_SUBNODE_VARS()
+		WRITE_SUBNODE_VARS()
 		
 		for i in range(0, length):
 			
@@ -349,7 +372,7 @@ _			output = NULL
 			
 			if working_node == NULL:				
 				CREATE_NODE(working_node,		)
-				self._write_subnode(current_node, working_node, character)
+				WRITE_SUBNODE(current_node,working_node,character,		)
 				new_node_written = True
 			
 			current_node = working_node
