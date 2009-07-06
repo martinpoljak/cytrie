@@ -199,7 +199,6 @@ cdef class Trie:
 		new_node.parent.node = NULL
 		new_node.subnodes_count = 0
 		new_node.flags = 0
-		HAS_CONTENT_ON(new_node)
 		
 		return new_node
 			
