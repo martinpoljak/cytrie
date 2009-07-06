@@ -1,0 +1,124 @@
+		
+	#define _GAT_VARS_WRAPPER(root, _direct1) \
+		\
+		""" \
+		Go around the tree non-recursive alghorithm. \
+		""" \
+		\
+		cdef Node *current_node = root \
+		cdef Node *processed_node \
+		\
+		cdef BOOL break_it = False \
+		cdef int i, j \
+		\
+		cdef CONTENT_MAP_TYPE mask \
+		\
+		current_node._traversing.last_chunk = 0 \
+		current_node._traversing.last_bit = 0 \
+		_direct1
+		
+	#define GAT_VARS_DIRECT(root) \
+		_GAT_VARS_WRAPPER(root)
+		
+	#define GAT_VARS(root) \
+		_GAT_VARS_WRAPPER(root,current_node._traversing.content_map = current_node.content_map)
+		
+	#define GAT_VARS_KEYS(root) \
+		cdef int level = 0 \
+		cdef int max_level = 4 \
+		cdef char *key_buffer = <char *> malloc(5 * sizeof(char)) \
+		\
+		GAT_VARS(root)
+		
+	#define _GAT_MAIN_WRAPPER(root, _direct1, _direct2) \
+		\
+		# Do \
+		\
+		while current_node != root.parent.node: \
+			\
+			# Traversing \
+			\
+			while current_node._direct1: \
+				\
+				for i in range(current_node._traversing.last_chunk, CHUNKS_COUNT): \
+					\
+					mask = 1 << i \
+					if current_node._direct1 & mask: \
+						for j in range(current_node._traversing.last_bit, CHUNK_SIZE): \
+							processed_node = current_node.subnodes[i][j] \
+							\
+							if processed_node: \
+								current_node._traversing.last_chunk = i \
+								current_node._traversing.last_bit = j + 1 \
+								\
+								processed_node._traversing.last_chunk = 0 \
+								processed_node._traversing.last_bit = 0	\
+								_direct2
+	
+	#define GAT_MAIN_DIRECT(root) \
+		_GAT_MAIN_WRAPPER(root,content_map)
+		
+	#define GAT_MAIN(root) \
+		_GAT_MAIN_WRAPPER(root,_traversing.content_map,processed_node._traversing.content_map = processed_node.content_map)
+		
+	#define GAT_MAIN_KEYS(root) \
+								GAT_MAIN(ROOT()) \
+								\
+								if level > max_level: \
+									max_level = level \
+									key_buffer = <char *> realloc(key_buffer, (max_level + 2) * sizeof(char)) \
+									\
+								key_buffer[level] = i * CHUNK_SIZE + j \
+								level += 1
+		
+	#define _GAT_FINISH_WRAPPER(special,_direct1) \
+								current_node = processed_node \
+								\
+								break_it = True \
+								break \
+								\
+						if break_it: \
+							break_it = False \
+							break \
+						\
+						special \
+						current_node._direct1 ^= mask	
+
+						
+	#define GAT_FINISH_DIRECT(special) \
+		_GAT_FINISH_WRAPPER(special,content_map)
+		
+	#define GAT_FINISH(special) \
+		_GAT_FINISH_WRAPPER(special,_traversing.content_map)
+	
+	#define GAT_UPWARD(special) \
+			special \
+			current_node = current_node.parent.node
+	
+	#define GAT_UPWARD_KEYS() \
+			GAT_UPWARD() \
+			level -= 1	
+	
+	#define GAT_BEGIN(root) \
+		GAT_VARS(root) \
+		GAT_MAIN(root) \
+		################################################
+		
+	#define GAT_END(special) \
+		################################################ \
+		GAT_FINISH() \
+			GAT_UPWARD(special)
+			
+	#define GAT_BEGIN_KEYS(root) \
+		GAT_VARS_KEYS(root) \
+		GAT_MAIN_KEYS(root) \
+		################################################
+		
+	#define GAT_END_KEYS() \
+		################################################ \
+		GAT_FINISH() \
+		GAT_UPWARD_KEYS() \
+		\
+		free(key_buffer)
+			
+	

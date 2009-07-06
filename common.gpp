@@ -1,0 +1,5 @@
+#define FLAG_SET(bitmap,flag) (bitmap & flag)
+#define FLAG_OFF(bitmap,flag) bitmap ^= flag
+#define FLAG_ON(bitmap,flag) bitmap |= flag
+
+include "common.pxi"
