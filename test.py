@@ -19,11 +19,26 @@ for i in range (0, 1000000):
 #work = []
 
 trie = pytrie.Trie()
+
+#trie["1"] = "1"
+#trie["2"] = "2"
+
+#trie2 = pytrie.Trie()
+#trie2.add("2", "2")
+
 #trie.add_dictionary(dict)
 
 for i in range (0, 1000000):
 	addition = str(i)
-	trie.add(addition, addition)
+#	#trie.add(addition, addition)
+	trie[addition] = addition
+#for i in range (0, 10000000):
+work = str(trie)
+
+#for i in range(0, 10000000):
+#	trie1 += trie2
+
+#print len(trie)
 
 #items = trie.dictionary()
 #print items
@@ -46,8 +61,13 @@ for i in range (0, 1000000):
 
 #for i in range(0, 1000000):
 #	trie.remove(str(i))
+#work = {"abc": "cde", "fgh": "ijk"}
+#print work
+
+#print work.__hash__()
 	
 #for i in range(0, 1000000):
 #	foo = trie.get(str(i))
 #	foo = trie[str(i)]
+#	print foo
 
