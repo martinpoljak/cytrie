@@ -33,11 +33,11 @@ cdef extern from "string.h":
 # setdefault(key[, default]) -- OK
 # update([other]) -- OK
 # values() -- OK
-# del d[key]
-# key in d
-# key not in d
-# d[key]
-# +
+# del d[key] -- OK
+# key in d -- OK
+# key not in d -- OK
+# d[key] -- OK
+# + -- OK
 
 # + fetching only some subtree by keys(), list(), dictionary(), reversed(), values() and copy() method
 # + neodalokovavaji se pole jen oznacena has_content = False
@@ -1048,12 +1048,19 @@ cdef class Trie:
 		cdef int max_level = 4
 		cdef char *key_buffer = <char *> malloc(5 * sizeof(char))
 		
-		cdef int buffer_size = self._len * sizeof(char) * 16
-		cdef char *result_buffer = <char *> malloc(buffer_size + 3 * sizeof(char))
-		cdef char *buffer_head = result_buffer + (1 * sizeof(char))
+		cdef int buffer_chunk_size = self._len * sizeof(char) * 16
+		cdef int buffer_size = buffer_chunk_size + (3 * sizeof(char))
+		cdef char *result_buffer = <char *> malloc(buffer_size)
+		cdef char *result_buffer_head = result_buffer + sizeof(char)
+		cdef char *result_buffer_tail = result_buffer + buffer_size
+		
 		result_buffer[0] = '{'
 		
+		cdef int key_length
+		cdef int value_length
 		cdef int length
+		
+		cdef char *new_buffer
 		
 		current_node._traversing.last_chunk = 0
 		current_node._traversing.last_bit = 0
@@ -1105,35 +1112,51 @@ cdef class Trie:
 				# Terminates key buffer
 				key_buffer[level] = 0
 				
+				# Checks the current buffer size and eventually realloc the memory
+				key_length = strlen(key_buffer)
+				value_length = strlen(current_node.value)
+				
+				length = 8 * sizeof(char) + key_length * sizeof(char) + value_length * sizeof(char)
+				
+				if result_buffer_head + length >= result_buffer_tail:
+					buffer_size += buffer_chunk_size
+					new_buffer = <char *> realloc(result_buffer, buffer_size)
+					result_buffer_tail = new_buffer + buffer_size
+					
+					if new_buffer != result_buffer:
+						result_buffer_head = new_buffer + (result_buffer_head - result_buffer)
+						result_buffer = new_buffer
+				
 				# Joins to the result buffer
-				buffer_head[0] = "'"
-				buffer_head += sizeof(char)
 				
-				length = strlen(key_buffer)
-				strncpy(buffer_head, key_buffer, length)
-				buffer_head += length * sizeof(char)
-				buffer_head[0] = "'"
-				buffer_head[1] = ":"
-				buffer_head[2] = " "
-				buffer_head[3] = "'"
-				buffer_head += sizeof(char) * 4
+				result_buffer_head[0] = "'"
+				result_buffer_head += sizeof(char)
 				
-				length = strlen(current_node.value)
-				strncpy(buffer_head, current_node.value, length)
-				buffer_head += length * sizeof(char)
+				strncpy(result_buffer_head, key_buffer, key_length)
+				result_buffer_head += key_length * sizeof(char)
 				
-				buffer_head[0] = "'"
-				buffer_head[1] = ","
-				buffer_head[2] = " "
-				buffer_head += sizeof(char) * 3
+				result_buffer_head[0] = "'"
+				result_buffer_head[1] = ":"
+				result_buffer_head[2] = " "
+				result_buffer_head[3] = "'"
+				result_buffer_head += sizeof(char) * 4
+				
+				strncpy(result_buffer_head, current_node.value, value_length)
+				result_buffer_head += value_length * sizeof(char)
+				
+				result_buffer_head[0] = "'"
+				result_buffer_head[1] = ","
+				result_buffer_head[2] = " "
+				result_buffer_head += sizeof(char) * 3
 
 			current_node = current_node.parent.node
 			level -= 1
 		
 		free(key_buffer)
 		
-		buffer_head -= 2
-		buffer_head[0] = "}"
-		buffer_head[1] = 0		
+		result_buffer_head -= 2 * sizeof(char)
+		result_buffer_head[0] = "}"
+		result_buffer_head[1] = 0
 		
+		result_buffer = <char *> realloc(result_buffer, result_buffer_head - result_buffer + sizeof(char))
 		return result_buffer
