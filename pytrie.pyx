@@ -78,6 +78,7 @@ cdef struct Node:
 #defeval HAS_CONTENT_OFF(node) FLAG_OFF(node.flags,FLAG_HAS_CONTENT)
 
 #define LENGTH() self._len
+#define ROOT() self._root
 
 #define LENGTH_UP() LENGTH += 1
 #define LENGTH_DOWN() LENGTH -= 1
@@ -197,18 +198,20 @@ cdef class Trie:
 			result = False
 			
 		return result
-			
-	
-	cdef inline Node* _create_node(Trie self):
 		
-		cdef Node *new_node = <Node *> malloc(sizeof(Node))
-		new_node.content_map = 0
+	#define CREATE_NODE(output, _) \
+_		output = <Node *> malloc(sizeof(Node)) \
+_		output.content_map = 0 \
+_		output.subnodes_count = 0 \
+_		output.flags = 0	
+			
+	cdef inline Node* _create_node(Trie self):
+		cdef Node *new_node
+		
+		CREATE_NODE(new_node)
 		new_node.parent.node = NULL
-		new_node.subnodes_count = 0
-		new_node.flags = 0
 		
 		return new_node
-	
 	
 	#define GET_SUBNODE_VARS(node) \
 		cdef int _get_subnode__chunk
@@ -227,7 +230,7 @@ _			output = NULL
 
 	cdef inline Node* _find_node(Trie self, char *key):
 		
-		cdef Node *current_node = self._root		
+		cdef Node *current_node = ROOT()		
 		cdef int length = strlen(key)
 		cdef int i
 		
@@ -334,7 +337,7 @@ _			output = NULL
 		cdef int i
 		cdef BOOL new_node_written = False
 		
-		cdef Node *current_node = self._root
+		cdef Node *current_node = ROOT()
 		cdef int length = strlen(key)	
 		
 		GET_SUBNODE_VARS()
@@ -345,11 +348,7 @@ _			output = NULL
 			GET_SUBNODE(working_node, current_node, character,	)
 			
 			if working_node == NULL:				
-				working_node = <Node *> malloc(sizeof(Node))
-				working_node.content_map = 0
-				working_node.subnodes_count = 0
-				working_node.flags = 0
-				
+				CREATE_NODE(working_node,		)
 				self._write_subnode(current_node, working_node, character)
 				new_node_written = True
 			
@@ -458,7 +457,7 @@ _			output = NULL
 		Go around the tree non-recursive alghorithm.
 		"""
 
-		cdef Node *current_node = self._root
+		cdef Node *current_node = ROOT()
 		cdef Node *processed_node
 		cdef Node *parent_node
 		
@@ -539,7 +538,7 @@ _			output = NULL
 		Go around the tree non-recursive alghorithm.
 		"""
 
-		cdef Node *current_node = self._root
+		cdef Node *current_node = ROOT()
 		cdef Node *processed_node
 		
 		cdef BOOL break_it = False 
@@ -602,7 +601,7 @@ _			output = NULL
 		Go around the tree non-recursive alghorithm.
 		"""
 
-		cdef Node *current_node = self._root
+		cdef Node *current_node = ROOT()
 		cdef Node *processed_node
 		
 		cdef BOOL break_it = False 
@@ -679,7 +678,7 @@ _			output = NULL
 		Go around the tree non-recursive alghorithm.
 		"""
 
-		cdef Node *current_node = self._root
+		cdef Node *current_node = ROOT()
 		cdef Node *processed_node
 		
 		cdef BOOL break_it = False 
@@ -759,7 +758,7 @@ _			output = NULL
 		Go around the tree non-recursive alghorithm.
 		"""
 
-		cdef Node *current_node = self._root
+		cdef Node *current_node = ROOT()
 		cdef  Node *processed_node
 		
 		cdef BOOL break_it = False 
@@ -872,7 +871,7 @@ _			output = NULL
 		Go around the tree non-recursive alghorithm.
 		"""
 		
-		cdef Node *current_node = self._root
+		cdef Node *current_node = ROOT()
 		cdef Node *processed_node
 		
 		cdef Node *target_current_node
@@ -1065,7 +1064,7 @@ _			output = NULL
 		Go around the tree non-recursive alghorithm.
 		"""
 
-		cdef Node *current_node = self._root
+		cdef Node *current_node = ROOT()
 		cdef Node *processed_node
 		
 		cdef BOOL break_it = False 
