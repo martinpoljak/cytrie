@@ -205,7 +205,9 @@ cdef class Trie:
 	#define GAT_FINISH(special) \
 		_GAT_FINISH_WRAPPER(special,_traversing.content_map)
 	
-	#define GAT_UPWARD() current_node = current_node.parent.node
+	#define GAT_UPWARD(special) \
+			special \
+			current_node = current_node.parent.node
 	
 	#define GAT_UPWARD_KEYS() \
 			GAT_UPWARD() \
@@ -216,10 +218,10 @@ cdef class Trie:
 		GAT_MAIN(root) \
 		################################################
 		
-	#define GAT_END() \
+	#define GAT_END(special) \
 		################################################ \
 		GAT_FINISH() \
-			GAT_UPWARD()
+			GAT_UPWARD(special)
 			
 	#define GAT_BEGIN_KEYS(root) \
 		GAT_VARS_KEYS(root) \
@@ -258,9 +260,7 @@ cdef class Trie:
 		
 		GAT_MAIN_DIRECT(node)							
 		GAT_FINISH_DIRECT(free(current_node.subnodes[i]))
-															
-			deallocated_node = current_node
-			GAT_UPWARD()
+		GAT_UPWARD(deallocated_node = current_node)						
 			
 			self._dealloc_leaf_node(deallocated_node)
 			
