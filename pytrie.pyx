@@ -223,6 +223,12 @@ cdef class Trie:
 				self.add_iterable(iterable)
 	
 	def __dealloc__(Trie self):
+		
+		# WOW!
+		#
+		# cdef void *work = <void *> self
+		# print (<Trie> work)._len
+		
 		self._dealloc_node(self._root)
 		
 	cdef inline void _init(Trie self):
@@ -733,11 +739,11 @@ _		_subnode.parent.bit = _write_subnode__bit
 		
 		GAT_END_KEYS()
 		
-	def __add__(Trie x, Trie y):
+	def __add__(Trie x, Trie y not None):
 		x.insert(y)
 		return x
 		
-	def __iadd__(Trie self, Trie x):
+	def __iadd__(Trie self, Trie x not None):
 		self.insert(x)
 		return self
 		
