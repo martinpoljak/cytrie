@@ -1,1 +1,1 @@
-ctypedef int BOOL
+ctypedef bint BOOL

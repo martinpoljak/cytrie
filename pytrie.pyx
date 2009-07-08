@@ -79,8 +79,14 @@ cdef class MemoryManager:
 	cdef inline void free(MemoryManager self, void *ptr):
 		pass
 		
-	cdef inline void prepare(MemoryManager self, int items_count, float similarity_index = 0.5, int average_length = 8):
+	cdef inline void prealloc(MemoryManager self, size_t size):
 		pass
+		
+	cdef inline void clear(MemoryManager self):
+		pass
+		
+#	cdef inline void shape(MemoryManager self):
+#		pass
 		
 cdef class DirectMemoryManager(MemoryManager):
 	
@@ -101,19 +107,20 @@ cdef struct MemoryBuffer:
 	
 cdef class PreallocMemoryManager(MemoryManager):
 	
-	cdef MemoryBuffer *_buffers[1]
+	cdef MemoryBuffer **_buffers
 	cdef int _count
-	cdef int _size
+	cdef size_t _size
 	
 	def __cinit__(PreallocMemoryManager self):
-		self._count = 0
+		self._init()
 	
 	def __dealloc__(PreallocMemoryManager self):
-		cdef int i
+		self.clear()
 		
-		for i in range(0, self._count):
-			free(self._buffers[i].begin)
-			free(self._buffers[i])
+	cdef inline void _init(PreallocMemoryManager self):
+		self._count = 0
+		self._size = 1000
+		self._buffers = <MemoryBuffer **> malloc(sizeof(MemoryBuffer *))
 		
 	#define NEW_BUFFER_VARS() cdef MemoryBuffer *new_buffer
 	
@@ -123,6 +130,7 @@ _		new_buffer.begin = malloc(self._size) \
 _		new_buffer.head = new_buffer.begin \
 _		new_buffer.tail = new_buffer.begin + self._size \
 _		\
+_		self._buffers = <MemoryBuffer **> realloc(self._buffers, sizeof(MemoryBuffer *) * self._count + 1) \
 _		self._buffers[self._count] = new_buffer \
 _		self._count += 1
 
@@ -133,12 +141,15 @@ _		self._count += 1
 		return new_buffer
 	
 	cdef inline void *malloc(PreallocMemoryManager self, size_t size):
-		cdef MemoryBuffer *target_buffer = self._buffers[self._count - 1]
+		cdef MemoryBuffer *target_buffer
 		
-		
-		if target_buffer.head + size > target_buffer.tail:
-			
+		if self._count == 0:
 			target_buffer = self._new_buffer()
+		else:
+			target_buffer = self._buffers[self._count - 1]
+
+			if target_buffer.head + size >= target_buffer.tail:
+				target_buffer = self._new_buffer()
 		
 		cdef void *result = target_buffer.head
 		target_buffer.head += size
@@ -151,13 +162,38 @@ _		self._count += 1
 	cdef inline void free(PreallocMemoryManager self, void *ptr):
 		pass
 		
-	cdef inline void prepare(PreallocMemoryManager self, int items_count, float similarity_index = 0.8, int average_length = 9):
-		self._size = (items_count * sizeof(Node)) + <int> ((1 - similarity_index) * average_length * sizeof(Node) * items_count) + (items_count * (average_length + 1))
+	cdef inline void prealloc(PreallocMemoryManager self, size_t size):
+		self._size = size
 		
-		NEW_BUFFER_VARS()
+	cdef inline void clear(PreallocMemoryManager self):
+		cdef int i
+		cdef MemoryBuffer **buffers = self._buffers
 		
-		if self._count == 0:
-			NEW_BUFFER(	)
+		for i in range(1, self._count):
+			free(buffers[i].begin)
+			free(buffers[i])
+			
+		free(buffers)
+		
+		###
+		
+		self._init()
+		
+	cdef inline void shape(PreallocMemoryManager self):
+		cdef int i
+		cdef size_t size
+		cdef MemoryBuffer *current_buffer
+		cdef void *new_buffer_begin
+		
+		for i in range(1, self._count):
+			current_buffer = self._buffers[i]
+			size = current_buffer.head - current_buffer.begin + 1
+			new_buffer_begin = realloc(current_buffer.begin, size)
+			
+			if new_buffer_begin != current_buffer.begin:
+				current_buffer.begin = new_buffer_begin
+				current_buffer.head = new_buffer_begin + size
+				current_buffer.tail = current_buffer.head
 
 
 #define FLAG_HAS_CONTENT 1
@@ -182,31 +218,26 @@ cdef class Trie:
 	cdef Node *_root
 	cdef int _len
 	cdef MemoryManager _mm
-	
+	cdef BOOL _prepared
+		
 	def __cinit__(Trie self):
-		self._mm = PreallocMemoryManager()
-		self._mm.prepare(1000000, 0.95, 7)
-		
-		self._root = self._create_node()
-		
-	def __init__(Trie self, dict dictionary = {}):
-		if len(dictionary) > 0:
-			self.add_dictionary(dictionary)
-
-	"""
-	# Probably not compatible with Cython at this time (because of 'isclass')
+		self._mm = DirectMemoryManager()
+		self._init()
 	
 	def __init__(Trie self, iterable = []):
 		if len(iterable) > 0:
-			if isclass(iterable, dict):
+			if isinstance(iterable, dict):
 				self.add_dictionary(iterable)
 			else:
 				self.add_iterable(iterable)
-	"""
-
-		
+	
 	def __dealloc__(Trie self):
 		self._dealloc_node(self._root)
+		
+	cdef inline void _init(Trie self):
+		self._prepared = False
+		self._len = 0
+		self._root = self._create_node()
 
 	cdef inline void _dealloc_node(Trie self, Node* node):
 		cdef Node *deallocated_node
@@ -489,6 +520,7 @@ _		_subnode.parent.bit = _write_subnode__bit
 			
 	def clear(Trie self):
 		self._dealloc_node(self._root)
+		self._mm.clear()
 		self._root = self._create_node()
 		
 	def values(Trie self):
@@ -804,5 +836,22 @@ _		_subnode.parent.bit = _write_subnode__bit
 		result_buffer_head[0] = "}"
 		result_buffer_head[1] = 0
 		
-		result_buffer = <char *> realloc(result_buffer, result_buffer_head - result_buffer + sizeof(char))
+		result_buffer = <char *> realloc(result_buffer, result_buffer_head - result_buffer + 2 * sizeof(char))
 		return result_buffer
+		
+	def prepare(Trie self, int items_count = 10, float similarity_index = 0.8, int average_length = 9):
+		cdef size_t size
+		
+		if self._len <= 0:			
+			size = (items_count * sizeof(Node)) + <int> ((1 - similarity_index) * average_length * sizeof(Node) * items_count) + (items_count * (average_length + 1))
+			
+			if not self._prepared:
+				self._mm = PreallocMemoryManager()
+				self._prepared = True
+				
+			self._mm.prealloc(size)
+		
+	def shape(Trie self):
+		if self._prepared:
+			(<PreallocMemoryManager> self._mm).shape()
+
