@@ -79,15 +79,6 @@ cdef class MemoryManager:
 	cdef inline void free(MemoryManager self, void *ptr):
 		pass
 		
-	cdef inline void prealloc(MemoryManager self, size_t size):
-		pass
-		
-	cdef inline void clear(MemoryManager self):
-		pass
-		
-#	cdef inline void shape(MemoryManager self):
-#		pass
-		
 cdef class DirectMemoryManager(MemoryManager):
 	
 	cdef inline void *malloc(DirectMemoryManager self, size_t size):
@@ -520,8 +511,11 @@ _		_subnode.parent.bit = _write_subnode__bit
 			
 	def clear(Trie self):
 		self._dealloc_node(self._root)
-		self._mm.clear()
 		self._root = self._create_node()
+		
+		if self._prepared:
+			(<PreallocMemoryManager> self._mm).clear()
+		
 		
 	def values(Trie self):
 		cdef list result = []
@@ -849,7 +843,7 @@ _		_subnode.parent.bit = _write_subnode__bit
 				self._mm = PreallocMemoryManager()
 				self._prepared = True
 				
-			self._mm.prealloc(size)
+			(<PreallocMemoryManager> self._mm).prealloc(size)
 		
 	def shape(Trie self):
 		if self._prepared:

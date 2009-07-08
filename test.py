@@ -16,19 +16,19 @@ for i in range (0, 1000000):
 	addition = str(i)
 	dict[addition] = addition
 """	
-work = {"abc": "111", "def": "222"}
+#work = {"abc": "111", "def": "222"}
 
-trie = pytrie.Trie(work)
+trie = pytrie.Trie()
 #trie.prepare()
 #trie["1"] = "1"
 #trie["2"] = "2"
-print trie
+#print trie
 #trie2 = pytrie.Trie()
 #trie2.add("2", "2")
 
 #trie.add_dictionary(dict)
-
-#for i in range (0, 1000000):
+trie.prepare()
+for i in range (0, 1000000):
 #	trie = pytrie.Trie()
 #	trie = {}
 #	trie["aaaaaaa"] = "aaaaaa"
@@ -37,11 +37,12 @@ print trie
 #	foo = trie["aaaaaaa"]
 #	foo = trie["ccccccc"]
 #	foo = trie["bbbbbbb"]
-#	addition = str(i)
+	addition = str(i)
 #	trie.add(addition, addition)
-#	trie[addition] = addition
+	trie[addition] = addition
 
 trie.shape()
+#trie.clear()
 #items = trie.dictionary()
 #print str(trie)[0:100]
 
