@@ -511,11 +511,10 @@ _		_subnode.parent.bit = _write_subnode__bit
 			
 	def clear(Trie self):
 		self._dealloc_node(self._root)
-		self._root = self._create_node()
-		
 		if self._prepared:
 			(<PreallocMemoryManager> self._mm).clear()
-		
+				
+		self._root = self._create_node()
 		
 	def values(Trie self):
 		cdef list result = []

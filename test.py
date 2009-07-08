@@ -42,7 +42,7 @@ for i in range (0, 1000000):
 	trie[addition] = addition
 
 trie.shape()
-#trie.clear()
+trie.clear()
 #items = trie.dictionary()
 #print str(trie)[0:100]
 
