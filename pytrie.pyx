@@ -66,6 +66,98 @@ cdef struct Node:
 	int flags
 	CONTENT_MAP_TYPE content_map
 	NodePosition parent
+	
+	
+cdef class MemoryManager:
+	
+	cdef inline void *malloc(MemoryManager self, size_t size):
+		pass
+		
+	cdef inline void *realloc(MemoryManager self, void *ptr, size_t size):
+		pass
+		
+	cdef inline void free(MemoryManager self, void *ptr):
+		pass
+		
+	cdef inline void prepare(MemoryManager self, int items_count, float similarity_index = 0.5, int average_length = 8):
+		pass
+		
+cdef class DirectMemoryManager(MemoryManager):
+	
+	cdef inline void *malloc(DirectMemoryManager self, size_t size):
+		return malloc(size)
+		
+	cdef inline void *realloc(DirectMemoryManager self, void *ptr, size_t size):
+		return realloc(ptr, size)
+		
+	cdef inline void free(DirectMemoryManager self, void *ptr):
+		free(ptr)
+		
+		
+cdef struct MemoryBuffer:
+	void *begin
+	void *head
+	void *tail
+	
+cdef class PreallocMemoryManager(MemoryManager):
+	
+	cdef MemoryBuffer *_buffers[1]
+	cdef int _count
+	cdef int _size
+	
+	def __cinit__(PreallocMemoryManager self):
+		self._count = 0
+	
+	def __dealloc__(PreallocMemoryManager self):
+		cdef int i
+		
+		for i in range(0, self._count):
+			free(self._buffers[i].begin)
+			free(self._buffers[i])
+		
+	#define NEW_BUFFER_VARS() cdef MemoryBuffer *new_buffer
+	
+	#define NEW_BUFFER(_) \
+_		new_buffer = <MemoryBuffer *> malloc(sizeof(MemoryBuffer)) \
+_		new_buffer.begin = malloc(self._size) \
+_		new_buffer.head = new_buffer.begin \
+_		new_buffer.tail = new_buffer.begin + self._size \
+_		\
+_		self._buffers[self._count] = new_buffer \
+_		self._count += 1
+
+	cdef inline MemoryBuffer *_new_buffer(PreallocMemoryManager self):
+		NEW_BUFFER_VARS()
+		NEW_BUFFER()
+		
+		return new_buffer
+	
+	cdef inline void *malloc(PreallocMemoryManager self, size_t size):
+		cdef MemoryBuffer *target_buffer = self._buffers[self._count - 1]
+		
+		
+		if target_buffer.head + size > target_buffer.tail:
+			
+			target_buffer = self._new_buffer()
+		
+		cdef void *result = target_buffer.head
+		target_buffer.head += size
+		
+		return result
+		
+	cdef inline void *realloc(PreallocMemoryManager self, void *ptr, size_t size):
+		return realloc(ptr, size)
+		
+	cdef inline void free(PreallocMemoryManager self, void *ptr):
+		pass
+		
+	cdef inline void prepare(PreallocMemoryManager self, int items_count, float similarity_index = 0.8, int average_length = 9):
+		self._size = (items_count * sizeof(Node)) + <int> ((1 - similarity_index) * average_length * sizeof(Node) * items_count) + (items_count * (average_length + 1))
+		
+		NEW_BUFFER_VARS()
+		
+		if self._count == 0:
+			NEW_BUFFER(	)
 
 
 #define FLAG_HAS_CONTENT 1
@@ -81,15 +173,20 @@ cdef struct Node:
 #define LENGTH_UP() LENGTH += 1
 #define LENGTH_DOWN() LENGTH -= 1
 
-
-
+#define MALLOC(size) self._mm.malloc(size)
+#define REALLOC(pointer, size) self._mm.realloc(pointer, size)
+#define FREE(pointer) self._mm.free(pointer)
 	
 cdef class Trie:
 	
 	cdef Node *_root
 	cdef int _len
+	cdef MemoryManager _mm
 	
 	def __cinit__(Trie self):
+		self._mm = PreallocMemoryManager()
+		self._mm.prepare(1000000, 0.95, 7)
+		
 		self._root = self._create_node()
 		
 	def __init__(Trie self, dict dictionary = {}):
@@ -112,7 +209,6 @@ cdef class Trie:
 		self._dealloc_node(self._root)
 
 	cdef inline void _dealloc_node(Trie self, Node* node):
-		
 		cdef Node *deallocated_node
 		
 		GAT_VARS_DIRECT(node)
@@ -126,15 +222,15 @@ cdef class Trie:
 			parent_node.subnodes_count -= 1
 			
 			if parent_node.subnodes_count <= 0:
-				free(parent_node.subnodes[pn_info.chunk])
+				FREE(parent_node.subnodes[pn_info.chunk])
 				parent_node.content_map = 0
 			else:
 				parent_node.subnodes[pn_info.chunk][pn_info.bit] = NULL
 			
 		# Do
-		
+		 
 		GAT_MAIN_DIRECT(node)							
-		GAT_FINISH_DIRECT(free(current_node.subnodes[i]))
+		GAT_FINISH_DIRECT(FREE(current_node.subnodes[i]))
 		GAT_UPWARD(deallocated_node = current_node)						
 			
 			self._dealloc_leaf_node(deallocated_node)
@@ -146,9 +242,9 @@ cdef class Trie:
 		if node.content_map == 0:
 			if HAS_CONTENT(node):
 				LENGTH_DOWN()
-				free(node.value)
+				FREE(node.value)
 			
-			free(node)
+			FREE(node)
 			result = True
 			
 		else:
@@ -157,7 +253,7 @@ cdef class Trie:
 		return result
 		
 	#define CREATE_NODE(output, _) \
-_		output = <Node *> malloc(sizeof(Node)) \
+_		output = <Node *> MALLOC(sizeof(Node)) \
 _		output.content_map = 0 \
 _		output.subnodes_count = 0 \
 _		output.flags = 0	
@@ -228,7 +324,7 @@ _		\
 _		_write_subnode__mask = 1 << _write_subnode__chunk \
 _		\
 _		if not (_node.content_map & _write_subnode__mask): \
-_			_node.subnodes[_write_subnode__chunk] = <Node**> malloc(sizeof(Node *) * CHUNK_SIZE) \
+_			_node.subnodes[_write_subnode__chunk] = <Node**> MALLOC(sizeof(Node *) * CHUNK_SIZE) \
 _			memset(_node.subnodes[_write_subnode__chunk], 0, sizeof(Node *) * CHUNK_SIZE) \
 _		\
 _		_node.content_map = _node.content_map | _write_subnode__mask \
@@ -239,15 +335,6 @@ _		_subnode.parent.node = _node \
 _		_subnode.parent.chunk = _write_subnode__chunk \
 _		_subnode.parent.bit = _write_subnode__bit
 
-	cdef inline void __write_subnode(Trie self, Node *node, Node *subnode, char position):
-		
-		"""
-		From an uknown reason, code with this inactive method is faster.
-		"""
-		
-		WRITE_SUBNODE_VARS()
-		WRITE_SUBNODE(node,subnode,position)	
-	
 	cdef inline void _add(Trie self, char *key, char *value):
 		
 		cdef char character
@@ -282,7 +369,7 @@ _		_subnode.parent.bit = _write_subnode__bit
 	cpdef add(Trie self, char *key, char *value):
 		
 		cdef int length = strlen(value) + 1
-		cdef char *_value = <char *> malloc(sizeof(char) * length)
+		cdef char *_value = <char *> MALLOC(sizeof(char) * length)
 		strncpy(_value, value, length)
 		
 		self._add(key, _value)
@@ -347,7 +434,7 @@ _		_subnode.parent.bit = _write_subnode__bit
 						break
 						
 					else:   
-						free(parent_node.subnodes[node.parent.chunk])
+						FREE(parent_node.subnodes[node.parent.chunk])
 						parent_node.content_map = 0
 						
 						self._dealloc_leaf_node(node)
@@ -388,7 +475,7 @@ _		_subnode.parent.bit = _write_subnode__bit
 						break
 						
 					else:   
-						free(parent_node.subnodes[current_node.parent.chunk])
+						FREE(parent_node.subnodes[current_node.parent.chunk])
 						parent_node.content_map = 0
 						
 						self._dealloc_leaf_node(current_node)
@@ -555,7 +642,7 @@ _		_subnode.parent.bit = _write_subnode__bit
 					if current_node._traversing.content_map & mask:
 
 						if i > target_current_node._traversing.last_chunk:
-							target_current_node.subnodes[i] = <Node **> malloc(sizeof(Node *) * CHUNK_SIZE)
+							target_current_node.subnodes[i] = <Node **> result._mm.malloc(sizeof(Node *) * CHUNK_SIZE)
 							memset(target_current_node.subnodes[i], 0, sizeof(Node *) * CHUNK_SIZE)
 							target_current_node._traversing.last_chunk = i
 							
@@ -574,7 +661,7 @@ _		_subnode.parent.bit = _write_subnode__bit
 								
 								###
 								
-								target_processed_node = <Node *> malloc(sizeof(Node))
+								target_processed_node = <Node *> result._mm.malloc(sizeof(Node))
 								target_processed_node.parent.node = target_current_node
 								target_current_node.subnodes[i][j] = target_processed_node
 								
@@ -584,7 +671,7 @@ _		_subnode.parent.bit = _write_subnode__bit
 								
 								if HAS_CONTENT(processed_node):
 									value_copy_size = (strlen(processed_node.value)+ 1) * sizeof(char)
-									target_processed_node.value = <char *> malloc(value_copy_size)
+									target_processed_node.value = <char *> result._mm.malloc(value_copy_size)
 									memcpy(target_processed_node.value, processed_node.value, value_copy_size)
 								
 								target_current_node = target_processed_node

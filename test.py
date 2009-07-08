@@ -33,8 +33,8 @@ for i in range (0, 1000000):
 #	#trie.add(addition, addition)
 	trie[addition] = addition
 
-items = trie.dictionary()
-print str(trie)[0:100]
+#items = trie.dictionary()
+#print str(trie)[0:100]
 
 #for i in range(0, 10000000):
 #	trie1 += trie2
