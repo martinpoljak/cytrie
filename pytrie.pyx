@@ -43,7 +43,6 @@ cdef extern from "string.h":
 # insert(trie) -- OK
 
 # + fetching only some subtree by keys(), list(), dictionary(), reversed(), values() and copy() method
-# + neodalokovavaji se pole jen oznacena has_content = False
 
 cdef struct Node	# Forward
 
@@ -68,8 +67,11 @@ cdef struct Node:
 	NodePosition parent
 	
 	
-cdef class MemoryManager:
+cdef class MemoryManager:	# ABSTRACT
 	
+	def __init__(MemoryManager self):
+		raise NotImplementedError
+		
 	cdef inline void *malloc(MemoryManager self, size_t size):
 		pass
 		
@@ -79,7 +81,13 @@ cdef class MemoryManager:
 	cdef inline void free(MemoryManager self, void *ptr):
 		pass
 		
+	cdef inline MemoryManager copy(MemoryManager self):
+		return MemoryManager()
+		
 cdef class DirectMemoryManager(MemoryManager):
+	
+	def __init__(DirectMemoryManager self):
+		pass
 	
 	cdef inline void *malloc(DirectMemoryManager self, size_t size):
 		return malloc(size)
@@ -104,6 +112,9 @@ cdef class PreallocMemoryManager(MemoryManager):
 	
 	def __cinit__(PreallocMemoryManager self):
 		self._init()
+		
+	def __init__(PreallocMemoryManager self):
+		pass
 	
 	def __dealloc__(PreallocMemoryManager self):
 		self.clear()
@@ -185,6 +196,12 @@ _		self._count += 1
 				current_buffer.begin = new_buffer_begin
 				current_buffer.head = new_buffer_begin + size
 				current_buffer.tail = current_buffer.head
+				
+	cdef inline PreallocMemoryManager copy(PreallocMemoryManager self):
+		cdef PreallocMemoryManager result = PreallocMemoryManager()
+		result._size = self._size
+		
+		return result
 
 
 #define FLAG_HAS_CONTENT 1
@@ -193,6 +210,10 @@ _		self._count += 1
 #defeval HAS_CONTENT(node) FLAG_SET(node.flags,FLAG_HAS_CONTENT)
 #defeval HAS_CONTENT_ON(node) FLAG_ON(node.flags,FLAG_HAS_CONTENT)
 #defeval HAS_CONTENT_OFF(node) FLAG_OFF(node.flags,FLAG_HAS_CONTENT)
+
+#defeval VALUE_ALLOCATED(node) FLAG_SET(node.flags,FLAG_VALUE_ALLOCATED)
+#defeval VALUE_ALLOCATED_ON(node) FLAG_ON(node.flags,FLAG_VALUE_ALLOCATED)
+#defeval VALUE_ALLOCATED_OFF(node) FLAG_OFF(node.flags,FLAG_VALUE_ALLOCATED)
 
 #define LENGTH() self._len
 #define ROOT() self._root
@@ -270,6 +291,8 @@ cdef class Trie:
 		if node.content_map == 0:
 			if HAS_CONTENT(node):
 				LENGTH_DOWN()
+				
+			if VALUE_ALLOCATED(node):
 				FREE(node.value)
 			
 			FREE(node)
@@ -284,7 +307,7 @@ cdef class Trie:
 _		output = <Node *> MALLOC(sizeof(Node)) \
 _		output.content_map = 0 \
 _		output.subnodes_count = 0 \
-_		output.flags = 0	
+_		output.flags = 0
 			
 	cdef inline Node* _create_node(Trie self):
 		cdef Node *new_node
@@ -390,6 +413,7 @@ _		_subnode.parent.bit = _write_subnode__bit
 		
 		current_node.value = value
 		HAS_CONTENT_ON(current_node)
+		VALUE_ALLOCATED_ON(current_node)
 		
 		if new_node_written:
 			LENGTH_UP()
@@ -451,6 +475,8 @@ _		_subnode.parent.bit = _write_subnode__bit
 		if node:
 			if node.subnodes_count > 0:
 				HAS_CONTENT_OFF(node)
+				VALUE_ALLOCATED_OFF(node)
+				FREE(node.value)
 			
 			else:
 				parent_node = node.parent.node
@@ -652,6 +678,9 @@ _		_subnode.parent.bit = _write_subnode__bit
 		
 		cdef Trie result = Trie()
 		result._len = LENGTH()
+		
+		if self._prepared:
+			result._mm = (<PreallocMemoryManager> self._mm).copy()
 		
 		target_current_node = result._root
 		memcpy(&(target_current_node.subnodes_count), &(current_node.subnodes_count), node_copy_size)
