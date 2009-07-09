@@ -1,4 +1,3 @@
-
 include "platform.pxi"
 
 #include "gat.gpp"
@@ -430,17 +429,19 @@ _		_subnode.parent.bit = _write_subnode__bit
 		
 		cdef char *string
 		
-		for key, item in dictionary.items():
-			string = _ = str(item)
-			self.add(key, string)
+		if dictionary is not None: 
+			for key, item in dictionary.items():
+				string = _ = str(item)
+				self.add(key, string)
 			
 	def add_iterable(Trie self, iterable):
 		
 		cdef char *string
-				
-		for item in iterable:
-			string = _ = str(item)
-			self.add(string, string)
+
+		if iterable is not None: 
+			for item in iterable:
+				string = _ = str(item)
+				self.add(string, string)
 		
 	cpdef get(Trie self, char *key):
 		
@@ -622,10 +623,17 @@ _		_subnode.parent.bit = _write_subnode__bit
 		
 		
 	def update(Trie self, tuple other):
+		if other is None:
+			raise TypeError
+			
 		self.add(other[0], other[1])
 		
 		
 	def fromkeys(Trie self, seq, value = []):
+		if (seq is None) or (value is None):
+			raise TypeError
+		
+		
 		cdef int length = len(seq)
 		cdef int i
 		
@@ -768,12 +776,18 @@ _		_subnode.parent.bit = _write_subnode__bit
 		
 		GAT_END_KEYS()
 		
-	def __add__(Trie x, Trie y not None):
-		x.insert(y)
+	def __add__(Trie x, Trie y):
+		if x is None:
+			return y
+			
+		if y is not None:
+			x.insert(y)
+			
 		return x
 		
-	def __iadd__(Trie self, Trie x not None):
-		self.insert(x)
+	def __iadd__(Trie self, Trie x):
+		if x is not None: 
+			self.insert(x)
 		return self
 		
 	def __len__(Trie self):
