@@ -1,7 +1,7 @@
 
-#include "platform.gpp"
-#include "gat.gpp"
-#include "common.gpp"
+#include "includes/platform.gpp"
+#include "includes/gat.gpp"
+#include "includes/common.gpp"
 
 #####
 
