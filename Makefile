@@ -15,8 +15,9 @@ pytrie.c: build/pytrie.pyx settings.gpp
 	cp build/pytrie.c .
 	
 build/pytrie.pyx: pytrie.pyx
+	-mkdir build
 	gpp -o build/pytrie.pyx pytrie.pyx
 	
 clean:
-	rm -f build/*
+	rm -rf build
 	rm -f pytrie.c pytrie.so
