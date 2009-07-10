@@ -1,1 +1,0 @@
-ctypedef bint BOOL

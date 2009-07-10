@@ -1,0 +1,20 @@
+#include "settings.gpp"
+
+#ifeq INT_SIZE 4
+	#include "platforms/platform_int4byte.gpp"
+	#define __done 1
+#endif
+
+#ifeq INT_SIZE 8
+	#include "platforms/platform_int8byte.gpp"
+	#define __done 1
+#endif
+
+#ifeq INT_SIZE 2
+	#include "platforms/platform_int2byte.gpp"
+	#define __done 1
+#endif
+
+
+#ifneq __done 1
+	#include "platforms/platform_char.gpp"

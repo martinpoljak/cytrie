@@ -1,5 +1,5 @@
-include "platform.pxi"
 
+#include "platform.gpp"
 #include "gat.gpp"
 #include "common.gpp"
 
