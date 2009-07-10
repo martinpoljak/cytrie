@@ -43,7 +43,7 @@ cdef extern from "string.h":
 
 # + fetching only some subtree by keys(), list(), dictionary(), reversed(), values() and copy() method
 
-cdef struct Node	# Forward
+cdef struct Node		# FORWARD
 
 cdef struct TraversingHelper:
 	int last_chunk
