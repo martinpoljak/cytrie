@@ -45,12 +45,16 @@ if test "$PYTHON_VERSION"; then
 	expr "$PYTHON_VERSION" : "\([[:digit:]][[:digit:]]*\.[[:digit:]][[:digit:]]*\)" > /tmp/.pytrie-conf-temp
 	PYTHON_VERSION=`cat /tmp/.pytrie-conf-temp`
 	
-	if test -z $KNOWN_OS; then
+	DEFAULT_INCLUDE_PATH="/usr/local/include$PYTHON_VERSION"
+	
+	if test "$KNOWN_OS"; then
 		if test "$OS" = "FreeBSD"; then PYTHON_INCLUDE_PATH="/usr/local/include/python$PYTHON_VERSION"; fi
-		if test "$OS" = "Linux"; then PYTHON_INCLUDE_PATH="/usr/local/include$PYTHON_VERSION"; fi
+		if test "$OS" = "Linux"; then PYTHON_INCLUDE_PATH="$DEFAULT_INCLUDE_PATH"; fi
 		if test "$OS" = "Cygwin"; then PYTHON_INCLUDE_PATH="/usr/local/include$PYTHON_VERSION"; fi
 		
 		PYTHON_INCLUDE_PATH_COMMAND="-DPYTHON_INCLUDE_PATH=$PYTHON_INCLUDE_PATH"
+	else
+		DEFAULT_INCLUDE_PATH_COMMAND="-DDEFAULT_PYTHON_INCLUDE_PATH=$DEFAULT_INCLUDE_PATH"
 	fi
 else
 	echo "no"
@@ -109,7 +113,7 @@ rm -f /tmp/.pytrie-conf-temp
 if test "$ERROR" = "0"; then
 	
 	echo -n "Generating Makefile... "
-	if gpp -DOS="$OS" $PYTHON_INCLUDE_PATH_COMMAND -o Makefile Makefile.gpp; then
+	if gpp -DOS="$OS" $PYTHON_INCLUDE_PATH_COMMAND $DEFAULT_INCLUDE_PATH_COMMAND -o Makefile Makefile.gpp; then
 		echo "done"
 		
 		if test -z $KNOWN_OS; then
