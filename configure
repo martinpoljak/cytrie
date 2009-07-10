@@ -1,0 +1,128 @@
+#! /bin/sh
+
+ERROR=0
+rm -f configure.log
+
+# System
+echo -n "Operating system... "
+OS=`uname`
+echo -n $OS
+
+case "$OSs" in FreeBSD|Linux|Cygwin) 
+	KNOWN_OS=1
+	echo " (known)"
+esac
+
+if test -z $KNOWN_OS; then
+	echo " (unknown)"
+fi
+
+
+
+# GPP
+echo -n "GPP macroprocessor available... "
+
+gpp --version 2> /tmp/.pytrie-conf-temp
+GPP_VERSION=`grep -m 1 "GPP [[:digit:]][[:digit:]]*\.[[:digit:]][[:digit:]]*" /tmp/.pytrie-conf-temp`
+
+if test "$GPP_VERSION"; then
+	echo "$GPP_VERSION"
+else
+	echo "no"
+	echo "GPP (Generic Preprocessor) not found." >> configure.log
+	ERROR=1
+fi
+
+# Python
+echo -n "Python interpreter available... "
+
+python --version 2> /tmp/.pytrie-conf-temp
+expr "`cat /tmp/.pytrie-conf-temp`" : "Python \(.*\)" > /tmp/.pytrie-conf-temp
+PYTHON_VERSION=`cat /tmp/.pytrie-conf-temp`
+
+if test "$PYTHON_VERSION"; then
+	echo $PYTHON_VERSION
+	expr "$PYTHON_VERSION" : "\([[:digit:]][[:digit:]]*\.[[:digit:]][[:digit:]]*\)" > /tmp/.pytrie-conf-temp
+	PYTHON_VERSION=`cat /tmp/.pytrie-conf-temp`
+	
+	if test -z $KNOWN_OS; then
+		if test "$OS" = "FreeBSD"; then PYTHON_INCLUDE_PATH="/usr/local/include/python$PYTHON_VERSION"; fi
+		if test "$OS" = "Linux"; then PYTHON_INCLUDE_PATH="/usr/local/include$PYTHON_VERSION"; fi
+		if test "$OS" = "Cygwin"; then PYTHON_INCLUDE_PATH="/usr/local/include$PYTHON_VERSION"; fi
+		
+		PYTHON_INCLUDE_PATH_COMMAND="-DPYTHON_INCLUDE_PATH=$PYTHON_INCLUDE_PATH"
+	fi
+else
+	echo "no"
+	echo "Python not found." >> configure.log	
+	ERROR=1
+fi
+
+# Cython
+echo -n "Cython compiler available... "
+
+cython --version 2> /tmp/.pytrie-conf-temp
+expr "`cat /tmp/.pytrie-conf-temp`" : "Cython version \(.*\)" > /tmp/.pytrie-conf-temp
+CYTHON_VERSION=`cat /tmp/.pytrie-conf-temp`
+	
+if test "$CYTHON_VERSION"; then
+	echo "$CYTHON_VERSION"
+else
+	echo "no"
+	echo "Cython not found!" >> configure.log	
+	ERROR=1
+fi
+
+# GCC
+echo -n "GCC available... "
+
+gcc --version > /tmp/.pytrie-conf-temp
+GCC_VERSION=`grep -m 1 "gcc" /tmp/.pytrie-conf-temp`
+	
+if test "$GCC_VERSION"; then
+	echo "$GCC_VERSION"
+else
+	echo "no"
+	echo "GCC (GNU C Compiler) not found." >> configure.log
+	ERROR=1
+fi
+
+
+# make
+echo -n "make available... "
+
+echo "default:" > Makefile
+
+if make; then
+	echo "yes"
+else
+	echo "no"
+	echo "make not found." >> configure.log
+	ERROR=1
+fi
+
+rm Makefile
+rm -f /tmp/.pytrie-conf-temp
+
+###
+
+if test "$ERROR" = "0"; then
+	
+	echo -n "Generating Makefile... "
+	if gpp -DOS="$OS" $PYTHON_INCLUDE_PATH_COMMAND -o Makefile Makefile.gpp; then
+		echo "done"
+		
+		if test -z $KNOWN_OS; then
+			echo	
+			echo "WARNING: Unknown operating system found. ($OS) "
+			echo "Please specify the Python include path by setting the 'PYTHON_INCLUDE_PATH' variable to make."
+			echo
+		fi
+		
+		echo "Let's build!"
+	else
+		exit 1
+	fi
+else
+	echo "Errors found. Check 'configure.log'."
+fi
