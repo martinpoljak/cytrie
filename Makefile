@@ -10,7 +10,7 @@ test: pytrie.so
 pytrie.so: pytrie.c
 	gcc -shared -pthread -fPIC -fwrapv -O3 -funsafe-loop-optimizations -fsched-spec-load -funsigned-char -fsee -fipa-pta -fbranch-target-load-optimize -Wall -fno-strict-aliasing -I${PYTHON_INCLUDE_PATH} -o pytrie.so pytrie.c	
 	
-pytrie.c: build/pytrie.pyx platform.pxi settings.pxi
+pytrie.c: build/pytrie.pyx platform.gpp settings.gpp
 	cp -r platforms build
 	cp -r *.pxi build
 	cython build/pytrie.pyx
