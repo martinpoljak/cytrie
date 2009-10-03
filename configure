@@ -8,7 +8,7 @@ echo -n "Operating system... "
 OS=`uname`
 echo -n $OS
 
-case "$OSs" in FreeBSD|Linux|Cygwin) 
+case "$OS" in FreeBSD|Linux|Cygwin) 
 	KNOWN_OS=1
 	echo " (known)"
 esac
@@ -29,7 +29,7 @@ if test "$GPP_VERSION"; then
 	echo "$GPP_VERSION"
 else
 	echo "no"
-	echo "GPP (Generic Preprocessor) not found." >> configure.log
+	echo "GPP (Generic Preprocessor) not found!" >> configure.log
 	ERROR=1
 fi
 
@@ -58,7 +58,7 @@ if test "$PYTHON_VERSION"; then
 	fi
 else
 	echo "no"
-	echo "Python not found." >> configure.log	
+	echo "Python not found!" >> configure.log	
 	ERROR=1
 fi
 
@@ -87,7 +87,7 @@ if test "$GCC_VERSION"; then
 	echo "$GCC_VERSION"
 else
 	echo "no"
-	echo "GCC (GNU C Compiler) not found." >> configure.log
+	echo "GCC (GNU C Compiler) not found!" >> configure.log
 	ERROR=1
 fi
 
