@@ -22,8 +22,8 @@ fi
 # GPP
 echo -n "GPP macroprocessor available... "
 
-gpp --version 2> /tmp/.pytrie-conf-temp
-GPP_VERSION=`grep -m 1 "GPP [[:digit:]][[:digit:]]*\.[[:digit:]][[:digit:]]*" /tmp/.pytrie-conf-temp`
+gpp --version 2> /tmp/.cytrie-conf-temp
+GPP_VERSION=`grep -m 1 "GPP [[:digit:]][[:digit:]]*\.[[:digit:]][[:digit:]]*" /tmp/.cytrie-conf-temp`
 
 if test "$GPP_VERSION"; then
 	echo "$GPP_VERSION"
@@ -36,14 +36,14 @@ fi
 # Python
 echo -n "Python interpreter available... "
 
-python --version 2> /tmp/.pytrie-conf-temp
-expr "`cat /tmp/.pytrie-conf-temp`" : "Python \(.*\)" > /tmp/.pytrie-conf-temp
-PYTHON_VERSION=`cat /tmp/.pytrie-conf-temp`
+python --version 2> /tmp/.cytrie-conf-temp
+expr "`cat /tmp/.cytrie-conf-temp`" : "Python \(.*\)" > /tmp/.cytrie-conf-temp
+PYTHON_VERSION=`cat /tmp/.cytrie-conf-temp`
 
 if test "$PYTHON_VERSION"; then
 	echo $PYTHON_VERSION
-	expr "$PYTHON_VERSION" : "\([[:digit:]][[:digit:]]*\.[[:digit:]][[:digit:]]*\)" > /tmp/.pytrie-conf-temp
-	PYTHON_VERSION=`cat /tmp/.pytrie-conf-temp`
+	expr "$PYTHON_VERSION" : "\([[:digit:]][[:digit:]]*\.[[:digit:]][[:digit:]]*\)" > /tmp/.cytrie-conf-temp
+	PYTHON_VERSION=`cat /tmp/.cytrie-conf-temp`
 	
 	DEFAULT_INCLUDE_PATH="/usr/local/include$PYTHON_VERSION"
 	
@@ -65,9 +65,9 @@ fi
 # Cython
 echo -n "Cython compiler available... "
 
-cython --version 2> /tmp/.pytrie-conf-temp
-expr "`cat /tmp/.pytrie-conf-temp`" : "Cython version \(.*\)" > /tmp/.pytrie-conf-temp
-CYTHON_VERSION=`cat /tmp/.pytrie-conf-temp`
+cython --version 2> /tmp/.cytrie-conf-temp
+expr "`cat /tmp/.cytrie-conf-temp`" : "Cython version \(.*\)" > /tmp/.cytrie-conf-temp
+CYTHON_VERSION=`cat /tmp/.cytrie-conf-temp`
 	
 if test "$CYTHON_VERSION"; then
 	echo "$CYTHON_VERSION"
@@ -80,8 +80,8 @@ fi
 # GCC
 echo -n "GCC available... "
 
-gcc --version > /tmp/.pytrie-conf-temp
-GCC_VERSION=`grep -m 1 "gcc" /tmp/.pytrie-conf-temp`
+gcc --version > /tmp/.cytrie-conf-temp
+GCC_VERSION=`grep -m 1 "gcc" /tmp/.cytrie-conf-temp`
 	
 if test "$GCC_VERSION"; then
 	echo "$GCC_VERSION"
@@ -106,7 +106,7 @@ else
 fi
 
 rm Makefile
-rm -f /tmp/.pytrie-conf-temp
+rm -f /tmp/.cytrie-conf-temp
 
 ###
 

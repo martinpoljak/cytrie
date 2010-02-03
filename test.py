@@ -1,4 +1,4 @@
-import pytrie
+import cytrie
 
 
 #trie = {}
@@ -18,18 +18,18 @@ for i in range (0, 1000000):
 """	
 #work = {"abc": "111", "def": "222"}
 
-trie = pytrie.Trie()
+trie = cytrie.Trie()
 #trie.prepare()
 #trie["1"] = "1"
 #trie["2"] = "2"
 #print trie
-#trie2 = pytrie.Trie()
+#trie2 = cytrie.Trie()
 #trie2.add("2", "2")
 
 #trie.add_dictionary(dict)
 trie.prepare()
 for i in range (0, 1000000):
-#	trie = pytrie.Trie()
+#	trie = cytrie.Trie()
 #	trie = {}
 #	trie["aaaaaaa"] = "aaaaaa"
 #	trie["ccccccc"] = "cccccc"
